@@ -4,6 +4,10 @@
 .env.development.local
 .env.test.local
 .env.production.local
+backend/.env
+backend/.env.*
+backend/update_password.js
+frontend/.env.*
 
 # 依存関係ディレクトリ
 node_modules/
