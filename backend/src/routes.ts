@@ -5,6 +5,8 @@
 import express from 'express';
 import { appConfig } from './config';
 import authRoutes from './features/auth/auth.routes';
+import propertiesRoutes from './features/properties/properties.routes';
+import geoRoutes from './features/geo/geo.routes';
 
 const router = express.Router();
 
@@ -13,6 +15,8 @@ const apiPrefix = appConfig.app.apiPrefix;
 
 // 各機能のルーターをマウント
 router.use(`${apiPrefix}/auth`, authRoutes);
+router.use(`${apiPrefix}/properties`, propertiesRoutes);
+router.use(`${apiPrefix}/geocode`, geoRoutes);
 
 // API Health Check
 router.get(`${apiPrefix}/health`, (req, res) => {

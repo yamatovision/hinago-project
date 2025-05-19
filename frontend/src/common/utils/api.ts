@@ -1,7 +1,12 @@
 /**
  * API通信用ユーティリティ
  */
-import { ApiResponse } from '../../../shared';
+import { ApiResponse } from 'shared';
+
+// APIのベースURL
+// 開発環境ではプロキシ経由でAPIにアクセス
+// Viteの設定でプロキシされるため、相対パスを使用
+const API_BASE_URL = 'http://localhost:8080';
 
 /**
  * HTTPリクエストを送信する共通関数
@@ -14,9 +19,9 @@ export async function fetchApi<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   // デフォルトのヘッダーを設定
-  const headers = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string> || {}),
   };
 
   // 認証トークンがあれば追加
@@ -25,30 +30,50 @@ export async function fetchApi<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // リクエストを送信
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  // APIのベースURLを追加
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+  
+  console.log(`APIリクエスト: ${options.method || 'GET'} ${fullUrl}`);
+  
+  try {
+    // リクエストを送信
+    const response = await fetch(fullUrl, {
+      ...options,
+      headers,
+    });
 
-  // JSONレスポンスを解析
-  const data = await response.json();
+    console.log(`APIステータスコード: ${response.status} ${response.statusText}`);
+    
+    // JSONレスポンスを解析
+    const data = await response.json();
 
-  // エラーレスポンスの場合
-  if (!response.ok) {
-    console.error('API Error:', data);
+    // エラーレスポンスの場合
+    if (!response.ok) {
+      console.error('APIエラーレスポンス:', {
+        status: response.status,
+        statusText: response.statusText,
+        data
+      });
+      
+      return {
+        success: false,
+        error: data.error || `通信エラーが発生しました: ${response.status} ${response.statusText}`,
+      };
+    }
+
+    // 成功レスポンスを返却
+    return {
+      success: true,
+      data: data.data,
+      meta: data.meta,
+    };
+  } catch (error) {
+    console.error('APIリクエスト実行エラー:', error);
     return {
       success: false,
-      error: data.error || '通信エラーが発生しました',
+      error: error instanceof Error ? error.message : '予期しないエラーが発生しました',
     };
   }
-
-  // 成功レスポンスを返却
-  return {
-    success: true,
-    data: data.data,
-    meta: data.meta,
-  };
 }
 
 /**

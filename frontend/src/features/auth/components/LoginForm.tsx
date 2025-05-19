@@ -13,7 +13,7 @@ import {
   Alert
 } from '@mui/material';
 import { Visibility, VisibilityOff, Business } from '@mui/icons-material';
-import { LoginRequest } from '../../../../shared';
+import { LoginRequest } from 'shared';
 import { useAuth } from '../../../common/hooks/useAuth';
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
 

@@ -2,7 +2,7 @@
  * 認証関連のカスタムフック
  */
 import { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { AuthUser, LoginRequest } from '../../../shared';
+import { AuthUser, LoginRequest } from 'shared';
 import { login, logout, getCurrentUser } from '../../features/auth/api/auth';
 
 // 認証コンテキストの型定義
