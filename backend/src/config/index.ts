@@ -1,14 +1,15 @@
 /**
- * 設定ファイルをまとめてエクスポート
+ * 設定をまとめてエクスポートする
  */
 import appConfig from './app.config';
 import authConfig from './auth.config';
-import dbConfig from './db.config';
 
-export const config = {
-  app: appConfig,
-  auth: authConfig,
-  db: dbConfig,
+export {
+  appConfig,
+  authConfig,
 };
 
-export default config;
+export default {
+  app: appConfig,
+  auth: authConfig,
+};

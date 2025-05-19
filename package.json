@@ -1,0 +1,25 @@
+{
+  "name": "hinago-project",
+  "version": "1.0.0",
+  "description": "土地購入意思決定支援システム HinagoProject",
+  "main": "index.js",
+  "scripts": {
+    "backend:dev": "cd backend && npm run dev",
+    "backend:build": "cd backend && npm run build",
+    "backend:test": "cd backend && npm run test",
+    "ts:check": "node scripts/ts-error/analyzer.js",
+    "ts:report": "node scripts/ts-error/report-generator.js",
+    "ts:suggest": "node scripts/ts-error/fix-suggestions.js"
+  },
+  "keywords": [
+    "real-estate",
+    "volume-check",
+    "property-management"
+  ],
+  "author": "Hinago Project Team",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "typescript": "^5.4.3"
+  }
+}

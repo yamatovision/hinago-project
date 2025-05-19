@@ -1,77 +1,132 @@
 /**
  * リフレッシュトークンモデル
+ * 
+ * MongoDBとMongooseを使用して実装しています。
  */
-import mongoose, { Document, Schema, Model } from 'mongoose';
-import { RefreshToken as RefreshTokenType } from '../../types';
+import { v4 as uuidv4 } from 'uuid';
+import { RefreshToken } from '../../types';
+import { RefreshTokenModel as MongoRefreshTokenModel } from './schemas/refreshToken.schema';
+import { logger } from '../../common/utils';
 
-// TypeScriptでのドキュメント型定義
-export interface RefreshTokenDocument extends Document, Omit<RefreshTokenType, 'id'> {}
+/**
+ * リフレッシュトークンモデルのクラス
+ */
+export class RefreshTokenModel {
+  /**
+   * トークン文字列でリフレッシュトークンを検索
+   * @param token トークン文字列
+   * @returns リフレッシュトークンオブジェクトまたはnull
+   */
+  static async findByToken(token: string): Promise<RefreshToken | null> {
+    try {
+      const refreshToken = await MongoRefreshTokenModel.findOne({ token }).lean();
+      if (!refreshToken) return null;
+      
+      // _id を id に変換
+      return {
+        ...refreshToken,
+        id: String(refreshToken._id),
+      } as RefreshToken;
+    } catch (error) {
+      logger.error('リフレッシュトークン検索エラー', { error });
+      throw error;
+    }
+  }
 
-// モデルのインターフェース
-export interface RefreshTokenModel extends Model<RefreshTokenDocument> {
-  findValidToken(token: string): Promise<RefreshTokenDocument | null>;
-  revokeToken(token: string): Promise<boolean>;
-  revokeAllUserTokens(userId: string): Promise<boolean>;
+  /**
+   * ユーザーIDでリフレッシュトークンを検索
+   * @param userId ユーザーID
+   * @returns リフレッシュトークンオブジェクトの配列
+   */
+  static async findByUserId(userId: string): Promise<RefreshToken[]> {
+    try {
+      const refreshTokens = await MongoRefreshTokenModel.find({ userId }).lean();
+      
+      // _id を id に変換
+      return refreshTokens.map(token => ({
+        ...token,
+        id: String(token._id),
+      } as RefreshToken));
+    } catch (error) {
+      logger.error('リフレッシュトークン検索エラー', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * 新しいリフレッシュトークンを作成
+   * @param userId ユーザーID
+   * @param expiresIn 有効期限（秒）
+   * @returns 作成されたリフレッシュトークンオブジェクト
+   */
+  static async create(userId: string, expiresIn: number): Promise<RefreshToken> {
+    try {
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + expiresIn * 1000);
+      
+      const newRefreshToken = await MongoRefreshTokenModel.create({
+        userId,
+        token: uuidv4(), // UUIDを使用してユニークなトークンを生成
+        expiresAt,
+      });
+      
+      const tokenObject = newRefreshToken.toObject();
+      
+      // _id を id に変換
+      return {
+        ...tokenObject,
+        id: String(tokenObject._id),
+      } as RefreshToken;
+    } catch (error) {
+      logger.error('リフレッシュトークン作成エラー', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * 特定のトークンを削除
+   * @param token トークン文字列
+   * @returns 削除が成功したかどうか
+   */
+  static async delete(token: string): Promise<boolean> {
+    try {
+      const result = await MongoRefreshTokenModel.deleteOne({ token });
+      return result.deletedCount > 0;
+    } catch (error) {
+      logger.error('リフレッシュトークン削除エラー', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * ユーザーのリフレッシュトークンをすべて削除
+   * @param userId ユーザーID
+   * @returns 削除されたトークンの数
+   */
+  static async deleteAllForUser(userId: string): Promise<number> {
+    try {
+      const result = await MongoRefreshTokenModel.deleteMany({ userId });
+      return result.deletedCount;
+    } catch (error) {
+      logger.error('リフレッシュトークン一括削除エラー', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * 期限切れのトークンをすべて削除
+   * @returns 削除されたトークンの数
+   */
+  static async deleteExpired(): Promise<number> {
+    try {
+      const now = new Date();
+      const result = await MongoRefreshTokenModel.deleteMany({ expiresAt: { $lt: now } });
+      return result.deletedCount;
+    } catch (error) {
+      logger.error('期限切れリフレッシュトークン削除エラー', { error });
+      throw error;
+    }
+  }
 }
 
-// スキーマ定義
-const refreshTokenSchema = new Schema<RefreshTokenDocument>(
-  {
-    userId: {
-      type: String,
-      required: [true, 'ユーザーIDは必須です'],
-    },
-    token: {
-      type: String,
-      required: [true, 'トークンは必須です'],
-      unique: true,
-    },
-    expiresAt: {
-      type: Date,
-      required: [true, '有効期限は必須です'],
-    },
-    isRevoked: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  {
-    timestamps: true, // createdAtとupdatedAtを自動的に管理
-    toJSON: {
-      transform: (_doc, ret) => {
-        ret.id = ret._id.toString();
-        delete ret._id;
-        delete ret.__v;
-      },
-    },
-  }
-);
-
-// 期限切れのトークンを自動的に削除するためのインデックス
-refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
-// 有効なトークンを検索するスタティックメソッド
-refreshTokenSchema.statics.findValidToken = async function (token: string): Promise<RefreshTokenDocument | null> {
-  return this.findOne({
-    token,
-    expiresAt: { $gt: new Date() }, // 有効期限が現在時刻より後
-    isRevoked: false, // 無効化されていない
-  });
-};
-
-// トークンを無効化するスタティックメソッド
-refreshTokenSchema.statics.revokeToken = async function (token: string): Promise<boolean> {
-  const result = await this.updateOne({ token }, { isRevoked: true });
-  return result.modifiedCount > 0;
-};
-
-// ユーザーの全トークンを無効化するスタティックメソッド
-refreshTokenSchema.statics.revokeAllUserTokens = async function (userId: string): Promise<boolean> {
-  const result = await this.updateMany({ userId }, { isRevoked: true });
-  return result.modifiedCount > 0;
-};
-
-// モデル生成
-const RefreshToken = mongoose.model<RefreshTokenDocument, RefreshTokenModel>('RefreshToken', refreshTokenSchema);
-
-export default RefreshToken;
+export default RefreshTokenModel;

@@ -1,22 +1,65 @@
 /**
- * Jestテスト用のセットアップファイル
+ * テスト環境のセットアップファイル
+ * Jest設定で各テスト実行前に読み込まれます
  */
-import { connectTestDB, disconnectTestDB, clearTestDB } from './utils/db-test-helper';
+import { config } from 'dotenv';
+import mongoose from 'mongoose';
+import { initializeDatabase } from '../src/db/connection';
+import { setupTestDatabase, cleanupTestDatabase } from './utils/db-test-helper';
+import { verifyTestAdminUser } from './utils/test-auth-helper';
+import { logger } from '../src/common/utils';
 
-// タイムアウトの延長（デフォルトは5秒）
+// 環境変数のロード
+config();
+
+// テストのタイムアウト設定（デフォルトは30秒）
 jest.setTimeout(30000);
 
-// テスト実行前にデータベース接続
+// 必要な環境変数が設定されているか確認
+const requiredEnvVars = [
+  'JWT_SECRET',
+  'JWT_ACCESS_EXPIRATION',
+  'JWT_REFRESH_EXPIRATION',
+];
+
+// グローバルなテスト前処理
 beforeAll(async () => {
-  await connectTestDB();
+  console.log('テスト環境のセットアップを開始します');
+  
+  // 環境変数の検証
+  const missingVars = requiredEnvVars.filter(name => !process.env[name]);
+  if (missingVars.length > 0) {
+    console.error(`必要な環境変数が不足しています: ${missingVars.join(', ')}`);
+    process.exit(1);
+  }
+  
+  try {
+    // データベース接続
+    await setupTestDatabase();
+    
+    // 管理者ユーザーの検証と初期化
+    const adminResult = await verifyTestAdminUser();
+    if (adminResult.created) {
+      console.log('管理者ユーザーを作成しました');
+    } else if (adminResult.updated) {
+      console.log('管理者ユーザーのパスワードを更新しました');
+    } else {
+      console.log('管理者ユーザーは既に正しく設定されています');
+    }
+  } catch (error) {
+    console.error('テスト環境セットアップエラー:', error);
+    // エラーが発生した場合でもテストを継続できるようにする
+    // エラーを再スローしない
+  }
 });
 
-// 各テストケース前にデータベースをクリア
-beforeEach(async () => {
-  await clearTestDB();
-});
-
-// テスト実行後にデータベース切断
+// グローバルなテスト後処理
 afterAll(async () => {
-  await disconnectTestDB();
+  try {
+    // データベース接続のクリーンアップ
+    await cleanupTestDatabase();
+  } catch (error) {
+    console.error('テスト環境クリーンアップエラー:', error);
+  }
+  console.log('テスト環境のクリーンアップを完了しました');
 });

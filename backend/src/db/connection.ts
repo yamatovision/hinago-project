@@ -1,65 +1,98 @@
 /**
- * MongoDBデータベース接続
+ * データベース接続モジュール
+ * 
+ * MongoDBデータベースへの接続と切断を管理します。
  */
 import mongoose from 'mongoose';
-import config from '../config';
-import logger from '../common/utils/logger';
+import { logger } from '../common/utils';
 
 // 接続オプション
 const connectionOptions: mongoose.ConnectOptions = {
-  ...config.db.mongodb.options,
-  ...config.db.connection,
+  // オプション設定
 };
 
 /**
- * データベース接続処理
+ * データベース接続URI取得
+ * @returns 接続URI
  */
-export const connectToDatabase = async (): Promise<void> => {
+export const getDbUri = (): string => {
+  const dbName = process.env.DB_NAME || 'hinago';
+  return process.env.MONGODB_URI || `mongodb://localhost:27017/${dbName}`;
+};
+
+/**
+ * データベース接続を初期化
+ */
+export const initializeDatabase = async (): Promise<void> => {
   try {
-    // 接続セットアップ
-    logger.info('MongoDBに接続しています...');
-    
-    // 接続開始
-    await mongoose.connect(config.db.mongodb.uri, connectionOptions);
-    
-    // 接続イベントのリスナー設定
-    mongoose.connection.on('connected', () => {
-      logger.info('MongoDBに接続しました');
-    });
-    
-    mongoose.connection.on('error', (err) => {
-      logger.error('MongoDB接続エラー', { error: err.message });
-    });
-    
-    mongoose.connection.on('disconnected', () => {
-      logger.warn('MongoDBから切断されました');
-    });
-    
-    // プロセス終了時にMongoDBとの接続を切断
-    process.on('SIGINT', async () => {
-      await mongoose.connection.close();
-      logger.info('MongoDBとの接続を閉じました');
-      process.exit(0);
-    });
-    
-    logger.info('MongoDBの接続設定が完了しました');
-  } catch (error: any) {
-    logger.error('MongoDBへの接続に失敗しました', { error: error.message });
+    const uri = getDbUri();
+    // すでに接続されている場合はスキップ
+    if (mongoose.connection.readyState === 1) {
+      logger.info('データベースにすでに接続されています');
+      return;
+    }
+
+    await mongoose.connect(uri, connectionOptions);
+    logger.info(`データベースに接続しました: ${uri}`);
+  } catch (error) {
+    logger.error('データベース初期化エラー', { error });
     throw error;
   }
 };
 
 /**
- * データベース切断処理
+ * データベース接続を閉じる
  */
-export const disconnectFromDatabase = async (): Promise<void> => {
+export const closeDatabase = async (): Promise<void> => {
   try {
-    await mongoose.connection.close();
-    logger.info('MongoDBとの接続を閉じました');
-  } catch (error: any) {
-    logger.error('MongoDBとの切断に失敗しました', { error: error.message });
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+      logger.info('データベース接続を終了しました');
+    }
+  } catch (error) {
+    logger.error('データベース切断エラー', { error });
     throw error;
   }
 };
 
-export default { connectToDatabase, disconnectFromDatabase };
+/**
+ * データベース接続状態を取得
+ * @returns 接続状態（0: 切断, 1: 接続, 2: 接続中, 3: 切断中）
+ */
+export const getDatabaseStatus = (): number => {
+  return mongoose.connection.readyState;
+};
+
+/**
+ * データベース情報を取得
+ * @returns データベース情報
+ */
+export const getDatabaseInfo = async (): Promise<any> => {
+  if (mongoose.connection.readyState !== 1) {
+    return { status: 'disconnected' };
+  }
+
+  try {
+    const db = mongoose.connection.db;
+    if (!db) {
+      return { status: 'no-database' };
+    }
+    
+    const dbName = db.databaseName;
+    const collections = await db.listCollections().toArray();
+    
+    return {
+      status: 'connected',
+      name: dbName,
+      collections: collections.map(c => c.name),
+      host: mongoose.connection.host,
+      port: mongoose.connection.port,
+    };
+  } catch (error) {
+    logger.error('データベース情報取得エラー', { error });
+    return { 
+      status: 'error',
+      error: String(error)
+    };
+  }
+};

@@ -1,15 +1,17 @@
 /**
- * ミドルウェアのエクスポート
+ * ミドルウェアをエクスポート
  */
-import { requireAuth, checkPublicEndpoint } from './auth.middleware';
-import { AppError, notFoundHandler, errorHandler } from './error.middleware';
+import { errorHandler, notFoundHandler, AppError } from './error.middleware';
 import { validate } from './validation.middleware';
+import { authRequired, hasRole, adminOnly, rateLimiter } from './auth.middleware';
 
 export {
-  requireAuth,
-  checkPublicEndpoint,
-  AppError,
-  notFoundHandler,
   errorHandler,
+  notFoundHandler,
+  AppError,
   validate,
+  authRequired,
+  hasRole,
+  adminOnly,
+  rateLimiter,
 };

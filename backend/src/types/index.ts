@@ -1,147 +1,131 @@
 /**
- * このファイルはshared/index.tsをリファレンスとして、バックエンドで必要な型定義を実装します。
- * ここではバックエンド固有の拡張も行います。
+ * ===== 統合型定義 =====
+ * 
+ * このファイルはshared/index.ts をリファレンスとして、
+ * 必要な型定義をコピーしたものです。
+ * デプロイ時の問題を回避するためのアプローチです。
  */
 
-// 共通型定義
+// 基本ID型
 export type ID = string;
 
+// タイムスタンプ関連
 export interface Timestamps {
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface PaginationParams {
-  page: number;
-  limit: number;
-}
-
+// レスポンス共通構造
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: any;
-  };
-  meta?: {
-    total?: number;
-    page?: number;
-    limit?: number;
-    totalPages?: number;
-    [key: string]: any;
-  };
+  error?: string;
+  meta?: Record<string, any>;
 }
 
-// 認証・ユーザー関連
+/**
+ * =================
+ * 認証関連の型定義
+ * =================
+ */
+
+// ユーザーロールの列挙型
 export enum UserRole {
-  USER = 'user',
+  ADMIN = 'ADMIN', // 管理者
+  USER = 'USER',   // 一般ユーザー（将来拡張用）
+  GUEST = 'GUEST'  // ゲスト（将来拡張用）
 }
 
+// ユーザーの型（DBモデルに対応）
 export interface User extends Timestamps {
   id: ID;
-  email: string;
-  name: string;
-  role: UserRole;
-  organizationId: ID;
-  password: string; // DBモデル用（API応答には含めない）
+  email: string;      // メールアドレス
+  name?: string;      // ユーザー名
+  password: string;   // ハッシュ化されたパスワード（保存用）
+  role: UserRole;     // ユーザーロール
 }
 
-export interface LoginData {
+// 認証用ユーザー情報（パスワードなどのセキュリティ情報を除いた情報）
+export interface AuthUser {
+  id: ID;
+  email: string;
+  name?: string;
+  role: UserRole;
+}
+
+// リフレッシュトークンの型（DBモデルに対応）
+export interface RefreshToken extends Timestamps {
+  id: ID;
+  userId: ID;        // ユーザーID
+  token: string;     // トークン文字列
+  expiresAt: Date;   // 有効期限
+}
+
+// ログインリクエストの型
+export interface LoginRequest {
   email: string;
   password: string;
   rememberMe?: boolean;
 }
 
-export interface AuthToken {
-  token: string;
+// ログインレスポンスの型
+export interface LoginResponse {
+  user: AuthUser;
+  accessToken: string;
   refreshToken: string;
-  expiresAt: string;
 }
 
-export interface AuthResponse {
-  user: Omit<User, 'password'>;
-  token: AuthToken;
+// リフレッシュトークンリクエストの型
+export interface RefreshTokenRequest {
+  refreshToken: string;
 }
 
-export interface PasswordResetRequest {
-  email: string;
+// リフレッシュトークンレスポンスの型
+export interface RefreshTokenResponse {
+  accessToken: string;
 }
 
-export interface PasswordResetConfirm {
-  token: string;
-  password: string;
+// JWT Payloadの型
+export interface JwtPayload {
+  sub: string;     // ユーザーID
+  email: string;   // メールアドレス
+  role: UserRole;  // ロール
+  iat: number;     // 発行時間
+  exp: number;     // 有効期限
 }
 
-export interface RegisterData {
-  email: string;
-  password: string;
-  name: string;
-  organizationName: string;
-}
+/**
+ * =================
+ * APIパスの定義
+ * =================
+ */
 
-// 組織関連
-export enum SubscriptionType {
-  FREE = 'free',
-  BASIC = 'basic',
-  PREMIUM = 'premium',
-}
-
-export interface Organization extends Timestamps {
-  id: ID;
-  name: string;
-  subscription: SubscriptionType;
-}
-
-// トークン保存用モデル (MongoDBモデル用)
-export interface RefreshToken extends Timestamps {
-  id: ID;
-  userId: ID;
-  token: string;
-  expiresAt: Date;
-  isRevoked: boolean;
-}
-
-// バックエンド専用 - リクエスト拡張
-export interface RequestWithUser extends Express.Request {
-  user?: {
-    id: string;
-    email: string;
-    role: UserRole;
-    organizationId: string;
-  };
-}
-
-// APIパス定義
 export const API_PATHS = {
   // 認証関連
   AUTH: {
-    BASE: '/api/auth',
-    LOGIN: '/api/auth/login',
-    LOGOUT: '/api/auth/logout',
-    REGISTER: '/api/auth/register',
-    REFRESH: '/api/auth/refresh',
-    PASSWORD_RESET_REQUEST: '/api/auth/password-reset/request',
-    PASSWORD_RESET_CONFIRM: '/api/auth/password-reset/confirm',
-    ME: '/api/auth/me'
-  }
+    LOGIN: '/api/v1/auth/login',
+    LOGOUT: '/api/v1/auth/logout',
+    REFRESH: '/api/v1/auth/refresh',
+    ME: '/api/v1/auth/me',
+  },
 };
 
-// 認証設定
-export const API_AUTH_CONFIG = {
-  // 認証が不要なパブリックエンドポイント
-  PUBLIC_ENDPOINTS: [
-    API_PATHS.AUTH.LOGIN,
-    API_PATHS.AUTH.REGISTER,
-    API_PATHS.AUTH.REFRESH,
-    API_PATHS.AUTH.PASSWORD_RESET_REQUEST,
-    API_PATHS.AUTH.PASSWORD_RESET_CONFIRM,
-  ],
-  
-  // アクセストークン設定
-  TOKEN_CONFIG: {
-    ACCESS_TOKEN_EXPIRY: 15 * 60, // 15分（秒単位）
-    REFRESH_TOKEN_EXPIRY: 7 * 24 * 60 * 60, // 7日（秒単位）
-    REFRESH_TOKEN_EXPIRY_REMEMBER: 30 * 24 * 60 * 60, // 30日（秒単位）
-  }
+/**
+ * =================
+ * 認証設定
+ * =================
+ */
+
+// 認証が不要なパブリックエンドポイント
+export const PUBLIC_ENDPOINTS = [
+  API_PATHS.AUTH.LOGIN,
+  API_PATHS.AUTH.REFRESH
+];
+
+// 固定管理者ユーザー（開発用）
+export const FIXED_ADMIN_USER: AuthUser = {
+  id: '1',
+  email: 'higano@gmail.com',
+  name: '管理者',
+  role: UserRole.ADMIN
 };

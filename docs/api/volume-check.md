@@ -1,96 +1,34 @@
-# ボリュームチェック関連API仕様書
+# ボリュームチェックAPI仕様書
 
 **バージョン**: 1.0.0  
-**最終更新日**: 2025-05-15  
+**最終更新日**: 2025-05-19  
 **ステータス**: ドラフト  
 
-## 1. 概要
+## 概要
 
-このドキュメントでは、HinagoProject（ボリュームチェックシステム）のボリュームチェック関連APIの詳細仕様を定義します。ボリュームチェックは、建築基準法や都市計画法に基づいた最大建築可能ボリュームの自動算出を中心とした機能で、システムの核となる機能です。
+ボリュームチェックAPIは、HinagoProjectの中核機能である建築可能ボリュームの計算と収益性分析機能を提供します。物件データに基づいた最大建築可能ボリュームの自動算出、3Dモデルの生成、容積消化率の計算、収益性試算などの機能を含みます。
 
-ボリュームチェックAPIは、物件データと建築パラメータに基づいて計算を実行し、結果を保存・取得する機能を提供します。また、計算結果の3Dモデル表示や容積消化率の計算も含まれます。
+- **認証要件**: すべてのエンドポイントで認証が必要
+- **基本URL**: `/api/v1/analysis`
 
-## 2. リソース概要
+## エンドポイント一覧
 
-### 2.1 ボリュームチェック (VolumeCheck)
+### 1. ボリュームチェック実行 - POST /api/v1/analysis/volume-check
 
-ボリュームチェックリソースは以下の主要属性を持ちます：
-
-| 属性 | 型 | 説明 |
-|-----|-----|------|
-| id | ID | 一意識別子 |
-| propertyId | ID | 関連物件ID |
-| assetType | AssetType | アセットタイプ |
-| buildingArea | number | 建築面積（㎡） |
-| totalFloorArea | number | 延床面積（㎡） |
-| buildingHeight | number | 建物高さ（m） |
-| consumptionRate | number | 容積消化率（%） |
-| floors | Floor[] | 階別情報 |
-| model3dData | any | 3Dモデルデータ |
-| createdAt | Date | 作成日時 |
-
-### 2.2 階別情報 (Floor)
-
-各階の面積情報を表します：
-
-| 属性 | 型 | 説明 |
-|-----|-----|------|
-| level | number | 階数 |
-| area | number | 床面積（㎡） |
-| commonArea | number | 共用部面積（㎡） |
-| privateArea | number | 専有部面積（㎡） |
-
-### 2.3 建築パラメータ (BuildingParams)
-
-ボリュームチェック計算のパラメータ：
-
-| 属性 | 型 | 説明 |
-|-----|-----|------|
-| assetType | AssetType | アセットタイプ |
-| floorHeight | number | 階高（m） |
-| commonAreaRatio | number | 共用部率（%） |
-| roadWidth | number | 前面道路幅員（m） |
-| floors | number | 階数 |
-
-### 2.4 アセットタイプ (AssetType)
-
-建物種別を表す列挙型：
-
-| 値 | 説明 |
-|---|------|
-| MANSION | マンション |
-| OFFICE | オフィス |
-| WOODEN_APARTMENT | 木造アパート |
-| HOTEL | ホテル |
-
-## 3. エンドポイント一覧
-
-| エンドポイント | メソッド | 認証 | 説明 |
-|--------------|--------|------|------|
-| `/api/analysis/volume-check` | POST | 必須 | ボリュームチェック実行 |
-| `/api/analysis/volume-check/{id}` | GET | 必須 | ボリュームチェック結果取得 |
-| `/api/analysis/volume-check/{id}` | DELETE | 必須 | ボリュームチェック結果削除 |
-| `/api/properties/{id}/volume-checks` | GET | 必須 | 物件のボリュームチェック一覧取得 |
-| `/api/analysis/volume-check/{id}/export` | GET | 必須 | ボリュームチェック結果PDF出力 |
-| `/api/analysis/volume-check/{id}/model` | GET | 必須 | 3Dモデルデータ取得 |
-
-## 4. エンドポイント詳細
-
-### 4.1 ボリュームチェック実行 - POST /api/analysis/volume-check
-
-物件情報と建築パラメータに基づいてボリュームチェックを実行し、結果を保存します。
+- **認証**: 必須
+- **概要**: 建築基準法に基づいた最大建築可能ボリュームの計算実行
 
 #### リクエスト
 
 ```json
 {
-  "propertyId": "property_123",
+  "propertyId": "prop_123456",
   "buildingParams": {
-    "assetType": "mansion",
     "floorHeight": 3.2,
     "commonAreaRatio": 15,
-    "roadWidth": 8,
-    "floors": 12
+    "floors": 9,
+    "roadWidth": 6,
+    "assetType": "mansion"
   }
 }
 ```
@@ -98,578 +36,946 @@
 #### バリデーションルール
 
 - `propertyId`: 必須、有効な物件ID
-- `buildingParams`: 必須、建築パラメータオブジェクト
-  - `assetType`: 必須、AssetType列挙型の有効な値
-  - `floorHeight`: 必須、2.5～5.0の範囲内の数値
-  - `commonAreaRatio`: 必須、0～50の範囲内の数値
-  - `roadWidth`: オプション、正の数値（未指定時は物件の値を使用）
-  - `floors`: 必須、1～50の範囲内の整数
+- `buildingParams.floorHeight`: 必須、2〜10の数値（階高 m）
+- `buildingParams.commonAreaRatio`: 必須、0〜100の数値（共用部率 %）
+- `buildingParams.floors`: 必須、1〜100の整数（階数）
+- `buildingParams.roadWidth`: オプション、0以上の数値（前面道路幅員 m）
+- `buildingParams.assetType`: 必須、AssetType列挙型の値
 
 #### レスポンス
 
 **成功**: 201 Created
+
 ```json
 {
   "success": true,
   "data": {
-    "id": "vc_123",
-    "propertyId": "property_123",
+    "id": "vol_123456",
+    "propertyId": "prop_123456",
     "assetType": "mansion",
-    "buildingArea": 400.4,
-    "totalFloorArea": 4320.0,
-    "buildingHeight": 38.4,
-    "consumptionRate": 90,
-    "floors": [
+    "buildingArea": 180.5,
+    "totalFloorArea": 900.2,
+    "buildingHeight": 28.8,
+    "consumptionRate": 90.02,
+    "floors": 9,
+    "floorBreakdown": [
       {
-        "level": 1,
-        "area": 400.4,
-        "commonArea": 60.06,
-        "privateArea": 340.34
+        "floor": 1,
+        "floorArea": 100.05,
+        "privateArea": 85.04,
+        "commonArea": 15.01
       },
+      // 省略（階別データが全フロア分含まれる）
       {
-        "level": 2,
-        "area": 380.0,
-        "commonArea": 57.0,
-        "privateArea": 323.0
-      },
-      // 他の階...
+        "floor": 9,
+        "floorArea": 100.05,
+        "privateArea": 85.04,
+        "commonArea": 15.01
+      }
     ],
-    "createdAt": "2025-05-15T12:00:00Z",
+    "regulationChecks": [
+      {
+        "name": "建蔽率",
+        "regulationValue": "80%",
+        "plannedValue": "72.2%",
+        "compliant": true
+      },
+      {
+        "name": "容積率",
+        "regulationValue": "400%",
+        "plannedValue": "360.08%",
+        "compliant": true
+      },
+      {
+        "name": "高さ制限",
+        "regulationValue": "31m",
+        "plannedValue": "28.8m",
+        "compliant": true
+      },
+      {
+        "name": "日影規制",
+        "regulationValue": "4h/2.5h",
+        "plannedValue": "適合",
+        "compliant": true
+      }
+    ],
     "model3dData": {
-      "url": "/api/analysis/volume-check/vc_123/model",
-      "format": "three.js"
-    }
+      "modelType": "three.js",
+      "data": {
+        // 3Dモデルのジオメトリデータ（サイズ削減のため一部省略）
+        "building": {
+          "position": [0, 0, 0],
+          "dimensions": [12, 12, 28.8]
+        },
+        "property": {
+          "points": [
+            [0, 0],
+            [12, 0],
+            [12, 20],
+            [0, 20],
+            [0, 0]
+          ]
+        }
+      }
+    },
+    "createdAt": "2025-03-25T10:15:00Z",
+    "updatedAt": "2025-03-25T10:15:00Z"
   }
 }
 ```
 
-**エラー**: リソースが見つからない - 404 Not Found
-```json
-{
-  "success": false,
-  "error": {
-    "code": "RESOURCE_NOT_FOUND",
-    "message": "指定された物件が見つかりません"
-  }
-}
-```
+**エラー**: バリデーションエラー - 400 Bad Request
 
-**エラー**: バリデーションエラー - 422 Unprocessable Entity
 ```json
 {
   "success": false,
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "入力データが不正です",
+    "message": "入力データが無効です",
     "details": {
-      "buildingParams.floorHeight": "階高は2.5m～5.0mの範囲内で指定してください"
+      "buildingParams.floors": "階数は1以上100以下の整数で指定してください",
+      "buildingParams.floorHeight": "階高は2m以上10m以下で指定してください"
     }
   }
 }
 ```
 
 **エラー**: 計算エラー - 422 Unprocessable Entity
+
 ```json
 {
   "success": false,
   "error": {
     "code": "CALCULATION_ERROR",
-    "message": "ボリュームチェックの計算中にエラーが発生しました",
+    "message": "建築ボリュームの計算に失敗しました",
     "details": {
-      "reason": "指定された階数では建築基準法の高さ制限に違反します"
+      "reason": "法規制への適合が不可能なパラメータが指定されています",
+      "violatedRegulations": ["高さ制限を超過しています"]
     }
   }
 }
 ```
 
-#### 実装ノート
+### 2. ボリュームチェック結果取得 - GET /api/v1/analysis/volume-check/{volumeCheckId}
 
-- 物件データと建築パラメータに基づいて最大建築可能ボリュームを計算
-- 建築基準法の各種制限（建蔽率、容積率、斜線制限、日影規制等）を考慮
-- 物件に敷地形状データがある場合は形状を考慮した正確な計算を実行
-- 形状データがない場合は長方形敷地を仮定して概算
-- 3Dモデルデータは簡易的な箱型モデルとして生成
-- アセットタイプごとの標準的な共用部率を参考値として使用
-- レート制限: 10回/分/ユーザー
+- **認証**: 必須
+- **概要**: 過去に計算したボリュームチェック結果の取得
 
----
-
-### 4.2 ボリュームチェック結果取得 - GET /api/analysis/volume-check/{id}
-
-指定されたIDのボリュームチェック結果を取得します。
-
-#### パスパラメータ
+#### URLパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | ボリュームチェックID |
-
-#### クエリパラメータ
-
-| パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| fields | string | いいえ | 取得するフィールドの指定（カンマ区切り） |
-| include_model | boolean | いいえ | 3Dモデルデータを含めるか（デフォルト: false） |
+|-----------|----|----|------|
+| volumeCheckId | string | はい | ボリュームチェック結果ID |
 
 #### レスポンス
 
 **成功**: 200 OK
+
 ```json
 {
   "success": true,
   "data": {
-    "id": "vc_123",
-    "propertyId": "property_123",
+    "id": "vol_123456",
+    "propertyId": "prop_123456",
     "assetType": "mansion",
-    "buildingArea": 400.4,
-    "totalFloorArea": 4320.0,
-    "buildingHeight": 38.4,
-    "consumptionRate": 90,
-    "floors": [
+    "buildingArea": 180.5,
+    "totalFloorArea": 900.2,
+    "buildingHeight": 28.8,
+    "consumptionRate": 90.02,
+    "floors": 9,
+    "floorBreakdown": [
       {
-        "level": 1,
-        "area": 400.4,
-        "commonArea": 60.06,
-        "privateArea": 340.34
+        "floor": 1,
+        "floorArea": 100.05,
+        "privateArea": 85.04,
+        "commonArea": 15.01
       },
-      // 他の階...
+      // 省略（階別データが全フロア分含まれる）
     ],
-    "createdAt": "2025-05-15T12:00:00Z",
+    "regulationChecks": [
+      {
+        "name": "建蔽率",
+        "regulationValue": "80%",
+        "plannedValue": "72.2%",
+        "compliant": true
+      },
+      // 省略（他の規制チェック結果）
+    ],
     "model3dData": {
-      "url": "/api/analysis/volume-check/vc_123/model",
-      "format": "three.js"
+      "modelType": "three.js",
+      "data": {
+        // 3Dモデルのジオメトリデータ（省略）
+      }
     },
-    "property": {
-      "id": "property_123",
-      "name": "福岡タワーマンション計画",
-      "address": "福岡市中央区天神1-1-1"
+    "createdAt": "2025-03-25T10:15:00Z",
+    "updatedAt": "2025-03-25T10:15:00Z"
+  }
+}
+```
+
+**エラー**: リソースが存在しない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定されたボリュームチェック結果が見つかりません"
+  }
+}
+```
+
+### 3. ボリュームチェック結果削除 - DELETE /api/v1/analysis/volume-check/{volumeCheckId}
+
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: ボリュームチェック結果の削除
+
+#### URLパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| volumeCheckId | string | はい | ボリュームチェック結果ID |
+
+#### レスポンス
+
+**成功**: 204 No Content
+
+**エラー**: リソースが存在しない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定されたボリュームチェック結果が見つかりません"
+  }
+}
+```
+
+**エラー**: 権限エラー - 403 Forbidden
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "この操作を実行する権限がありません"
+  }
+}
+```
+
+### 4. 収益性試算実行 - POST /api/v1/analysis/profitability
+
+- **認証**: 必須
+- **概要**: ボリュームチェック結果に基づいた収益性試算の実行
+
+#### リクエスト
+
+```json
+{
+  "propertyId": "prop_123456",
+  "volumeCheckId": "vol_123456",
+  "assetType": "mansion",
+  "financialParams": {
+    "rentPerSqm": 3500,
+    "occupancyRate": 95,
+    "managementCostRate": 20,
+    "constructionCostPerSqm": 380000,
+    "rentalPeriod": 35,
+    "capRate": 4.5
+  }
+}
+```
+
+#### バリデーションルール
+
+- `propertyId`: 必須、有効な物件ID
+- `volumeCheckId`: 必須、有効なボリュームチェック結果ID
+- `assetType`: 必須、AssetType列挙型の値
+- `financialParams.rentPerSqm`: 必須、0以上の数値（賃料単価 円/m²）
+- `financialParams.occupancyRate`: 必須、0〜100の数値（稼働率 %）
+- `financialParams.managementCostRate`: 必須、0〜100の数値（管理コスト率 %）
+- `financialParams.constructionCostPerSqm`: 必須、0以上の数値（建設単価 円/m²）
+- `financialParams.rentalPeriod`: 必須、1〜100の整数（運用期間 年）
+- `financialParams.capRate`: 必須、0〜20の数値（還元利回り %）
+
+#### レスポンス
+
+**成功**: 201 Created
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "prof_123456",
+    "propertyId": "prop_123456",
+    "volumeCheckId": "vol_123456",
+    "assetType": "mansion",
+    "parameters": {
+      "rentPerSqm": 3500,
+      "occupancyRate": 95,
+      "managementCostRate": 20,
+      "constructionCostPerSqm": 380000,
+      "rentalPeriod": 35,
+      "capRate": 4.5
+    },
+    
+    "landPrice": 120000000,
+    "constructionCost": 342076000,
+    "miscExpenses": 13683040,
+    "totalInvestment": 475759040,
+    
+    "annualRentalIncome": 32507175,
+    "annualOperatingExpenses": 6501435,
+    "annualMaintenance": 3420760,
+    "annualPropertyTax": 4757590,
+    "annualNOI": 17827390,
+    
+    "noiYield": 3.75,
+    "irr": 5.2,
+    "paybackPeriod": 26.7,
+    "npv": 51236485,
+    
+    "annualFinancials": [
+      {
+        "year": 1,
+        "rentalIncome": 32507175,
+        "operatingExpenses": 14679785,
+        "netOperatingIncome": 17827390,
+        "accumulatedIncome": 17827390
+      },
+      // 省略（35年分のデータ）
+      {
+        "year": 35,
+        "rentalIncome": 32507175,
+        "operatingExpenses": 14679785,
+        "netOperatingIncome": 17827390,
+        "accumulatedIncome": 623958650
+      }
+    ],
+    
+    "createdAt": "2025-03-26T11:20:00Z",
+    "updatedAt": "2025-03-26T11:20:00Z"
+  }
+}
+```
+
+**エラー**: バリデーションエラー - 400 Bad Request
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "入力データが無効です",
+    "details": {
+      "financialParams.rentPerSqm": "賃料単価は0以上の数値で指定してください",
+      "financialParams.capRate": "還元利回りは0~20%の範囲で指定してください"
     }
   }
 }
 ```
 
-**エラー**: リソースが見つからない、権限エラーの場合は前述のエラーレスポンスと同様。
+### 5. 収益性試算結果取得 - GET /api/v1/analysis/profitability/{profitabilityId}
 
-#### 実装ノート
+- **認証**: 必須
+- **概要**: 過去に計算した収益性試算結果の取得
 
-- `fields`パラメータが指定された場合、指定されたフィールドのみが返却される
-- `include_model=true`の場合、3Dモデルデータが含まれる（データ量が大きい場合があるため）
-- デフォルトでは物件の基本情報（id, name, address）も含まれる
-- レート制限: 60回/分/ユーザー
-
----
-
-### 4.3 ボリュームチェック結果削除 - DELETE /api/analysis/volume-check/{id}
-
-指定されたIDのボリュームチェック結果を削除します。
-
-#### パスパラメータ
+#### URLパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | ボリュームチェックID |
+|-----------|----|----|------|
+| profitabilityId | string | はい | 収益性試算結果ID |
 
 #### レスポンス
 
 **成功**: 200 OK
+
 ```json
 {
   "success": true,
   "data": {
-    "id": "vc_123",
-    "deleted": true
+    "id": "prof_123456",
+    "propertyId": "prop_123456",
+    "volumeCheckId": "vol_123456",
+    "assetType": "mansion",
+    "parameters": {
+      "rentPerSqm": 3500,
+      "occupancyRate": 95,
+      "managementCostRate": 20,
+      "constructionCostPerSqm": 380000,
+      "rentalPeriod": 35,
+      "capRate": 4.5
+    },
+    
+    "landPrice": 120000000,
+    "constructionCost": 342076000,
+    "miscExpenses": 13683040,
+    "totalInvestment": 475759040,
+    
+    "annualRentalIncome": 32507175,
+    "annualOperatingExpenses": 6501435,
+    "annualMaintenance": 3420760,
+    "annualPropertyTax": 4757590,
+    "annualNOI": 17827390,
+    
+    "noiYield": 3.75,
+    "irr": 5.2,
+    "paybackPeriod": 26.7,
+    "npv": 51236485,
+    
+    "annualFinancials": [
+      // 省略（35年分のデータ）
+    ],
+    
+    "createdAt": "2025-03-26T11:20:00Z",
+    "updatedAt": "2025-03-26T11:20:00Z"
   }
 }
 ```
 
-**エラー**: リソースが見つからない、権限エラーの場合は前述のエラーレスポンスと同様。
+**エラー**: リソースが存在しない - 404 Not Found
 
-#### 実装ノート
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定された収益性試算結果が見つかりません"
+  }
+}
+```
 
-- ボリュームチェック結果の削除は論理削除（ソフトデリート）として実装
-- 関連するシナリオも削除マークされる
-- 削除されたボリュームチェック結果は一覧取得では表示されなくなる
-- レート制限: 10回/分/ユーザー
+### 6. 収益性試算結果削除 - DELETE /api/v1/analysis/profitability/{profitabilityId}
 
----
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: 収益性試算結果の削除
 
-### 4.4 物件のボリュームチェック一覧取得 - GET /api/properties/{id}/volume-checks
-
-指定された物件IDに関連するボリュームチェック結果の一覧を取得します。
-
-#### パスパラメータ
+#### URLパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | 物件ID |
+|-----------|----|----|------|
+| profitabilityId | string | はい | 収益性試算結果ID |
+
+#### レスポンス
+
+**成功**: 204 No Content
+
+**エラー**: リソースが存在しない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定された収益性試算結果が見つかりません"
+  }
+}
+```
+
+### 7. シナリオ一覧取得 - GET /api/v1/analysis/scenarios
+
+- **認証**: 必須
+- **概要**: 物件またはボリュームチェック結果に関連するシナリオ一覧の取得
 
 #### クエリパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| page | number | いいえ | ページ番号（デフォルト: 1） |
-| limit | number | いいえ | 1ページあたりの結果数（デフォルト: 20、最大: 100） |
-| sort | string | いいえ | ソート条件（例: `createdAt:desc`） |
-| assetType | string | いいえ | アセットタイプによるフィルタ（カンマ区切りで複数指定可） |
+|-----------|----|----|------|
+| propertyId | string | いいえ | 物件IDでフィルタリング |
+| volumeCheckId | string | いいえ | ボリュームチェック結果IDでフィルタリング |
+
+注: propertyIdまたはvolumeCheckIdのいずれかは必須です
 
 #### レスポンス
 
 **成功**: 200 OK
+
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "vc_123",
-      "propertyId": "property_123",
-      "assetType": "mansion",
-      "buildingArea": 400.4,
-      "totalFloorArea": 4320.0,
-      "buildingHeight": 38.4,
-      "consumptionRate": 90,
-      "createdAt": "2025-05-15T12:00:00Z"
+      "id": "scen_123456",
+      "propertyId": "prop_123456",
+      "volumeCheckId": "vol_123456",
+      "name": "基本シナリオ",
+      "params": {
+        "assetType": "mansion",
+        "rentPerSqm": 3500,
+        "occupancyRate": 95,
+        "managementCostRate": 20,
+        "constructionCostPerSqm": 380000,
+        "rentalPeriod": 35,
+        "capRate": 4.5
+      },
+      "createdAt": "2025-03-26T11:20:00Z",
+      "updatedAt": "2025-03-26T11:20:00Z"
     },
     {
-      "id": "vc_124",
-      "propertyId": "property_123",
-      "assetType": "office",
-      "buildingArea": 400.4,
-      "totalFloorArea": 4800.0,
-      "buildingHeight": 48.0,
-      "consumptionRate": 95,
-      "createdAt": "2025-05-15T12:10:00Z"
+      "id": "scen_123457",
+      "propertyId": "prop_123456",
+      "volumeCheckId": "vol_123456",
+      "name": "楽観的シナリオ",
+      "params": {
+        "assetType": "mansion",
+        "rentPerSqm": 3800,
+        "occupancyRate": 98,
+        "managementCostRate": 18,
+        "constructionCostPerSqm": 370000,
+        "rentalPeriod": 35,
+        "capRate": 4.2
+      },
+      "createdAt": "2025-03-26T11:25:00Z",
+      "updatedAt": "2025-03-26T11:25:00Z"
     }
-    // 他のボリュームチェック結果...
-  ],
-  "meta": {
-    "total": 3,
-    "page": 1,
-    "limit": 20,
-    "totalPages": 1
-  }
+  ]
 }
 ```
 
-**エラー**: リソースが見つからない、権限エラーの場合は前述のエラーレスポンスと同様。
+**エラー**: パラメータエラー - 400 Bad Request
 
-#### 実装ノート
-
-- 一覧取得では階別情報や3Dモデルデータは含まれない（概要情報のみ）
-- 削除マークされたボリュームチェック結果は含まれない
-- レート制限: 60回/分/ユーザー
-
----
-
-### 4.5 ボリュームチェック結果PDF出力 - GET /api/analysis/volume-check/{id}/export
-
-指定されたIDのボリュームチェック結果をPDF形式で出力します。
-
-#### パスパラメータ
-
-| パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | ボリュームチェックID |
-
-#### クエリパラメータ
-
-| パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| include_3d | boolean | いいえ | 3Dモデル画像を含めるか（デフォルト: true） |
-| template | string | いいえ | PDFテンプレート（`simple`, `detailed`, `presentation`） |
-
-#### レスポンス
-
-**成功**: 200 OK
-Content-Type: application/pdf
-Content-Disposition: attachment; filename="volumecheck_result_{id}.pdf"
-
-**エラー**: リソースが見つからない、権限エラーの場合は前述のエラーレスポンスと同様。
-
-#### 実装ノート
-
-- PDF生成はサーバーサイドで実行され、ダウンロード形式で提供
-- PDF内容は物件情報、ボリュームチェック結果、3D画像、階別情報を含む
-- テンプレートに応じてレイアウトやフォーマットが変更
-- 3Dモデル画像は異なる角度から生成された静的画像
-- レポートヘッダーには組織情報（名称等）が含まれる
-- レート制限: 20回/時間/ユーザー
-
----
-
-### 4.6 3Dモデルデータ取得 - GET /api/analysis/volume-check/{id}/model
-
-指定されたIDのボリュームチェック結果の3Dモデルデータを取得します。
-
-#### パスパラメータ
-
-| パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | ボリュームチェックID |
-
-#### クエリパラメータ
-
-| パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| format | string | いいえ | モデル形式（`three.js`, `gltf`, `obj`）、デフォルト: `three.js` |
-
-#### レスポンス
-
-**成功**: 200 OK
-Content-Type: application/json (three.js形式の場合)
-```json
-{
-  "metadata": {
-    "version": 4.5,
-    "type": "Object",
-    "generator": "HinagoProject"
-  },
-  "geometries": [
-    // 3Dモデルのジオメトリデータ
-  ],
-  "materials": [
-    // マテリアルデータ
-  ],
-  "object": {
-    // シーングラフデータ
-  }
-}
-```
-
-**エラー**: リソースが見つからない、権限エラーの場合は前述のエラーレスポンスと同様。
-
-**エラー**: 未対応フォーマット - 400 Bad Request
 ```json
 {
   "success": false,
   "error": {
-    "code": "UNSUPPORTED_FORMAT",
-    "message": "指定されたモデル形式はサポートされていません"
+    "code": "INVALID_PARAMETERS",
+    "message": "propertyIdまたはvolumeCheckIdのいずれかを指定してください"
   }
 }
 ```
 
-#### 実装ノート
+### 8. シナリオ作成 - POST /api/v1/analysis/scenarios
 
-- デフォルトではThree.js JSON形式で3Dモデルデータを提供
-- モデルは敷地形状と箱型の建物モデルで構成
-- フォーマット変換はサーバーサイドで実行
-- モデルデータはキャッシュされ、再計算なしで提供
-- レート制限: 60回/分/ユーザー
+- **認証**: 必須
+- **概要**: 収益性試算のための新規シナリオの作成
 
-## 5. アセットタイプ情報
+#### リクエスト
 
-アセットタイプごとの標準情報は以下の通りです：
-
-| アセットタイプ | 名称 | デフォルト階高 | 共用部率 | 標準容積消化率 |
-|-------------|------|-------------|--------|--------------|
-| MANSION | マンション | 3.2m | 15% | 90% |
-| OFFICE | オフィス | 4.0m | 20% | 95% |
-| WOODEN_APARTMENT | 木造アパート | 2.8m | 10% | 80% |
-| HOTEL | ホテル | 3.5m | 25% | 85% |
-
-これらの値はボリュームチェック計算時のデフォルト値として使用されますが、リクエスト時に上書き可能です。
-
-## 6. 容積消化率計算
-
-容積消化率は、建築基準法上の最大容積に対する実際に使用する容積の比率を表します：
-
-```
-容積消化率 = (総延床面積 / (敷地面積 × 容積率 / 100)) × 100
+```json
+{
+  "propertyId": "prop_123456",
+  "volumeCheckId": "vol_123456",
+  "name": "悲観的シナリオ",
+  "params": {
+    "assetType": "mansion",
+    "rentPerSqm": 3200,
+    "occupancyRate": 90,
+    "managementCostRate": 25,
+    "constructionCostPerSqm": 400000,
+    "rentalPeriod": 35,
+    "capRate": 5.0
+  }
+}
 ```
 
-この比率は、アセットタイプごとの標準的な建築プランに基づいており、以下の要素を考慮しています：
+#### バリデーションルール
 
-- 各階の有効面積率
-- 共用部や設備スペースの必要面積
-- 構造的制約
-- 駐車場・駐輪場の必要面積
-- 住戸・オフィス区画の標準的なレイアウト効率
+- `propertyId`: 必須、有効な物件ID
+- `volumeCheckId`: 必須、有効なボリュームチェック結果ID
+- `name`: 必須、1〜100文字
+- `params`: 必須、FinancialParamsオブジェクト
 
-## 7. 建築基準法の制限
+#### レスポンス
 
-ボリュームチェック計算では、以下の建築基準法の制限が考慮されます：
+**成功**: 201 Created
 
-1. **建蔽率制限**: 敷地面積に対する建築面積の比率上限
-2. **容積率制限**: 敷地面積に対する延床面積の比率上限
-3. **絶対高さ制限**: 用途地域や条例による高さの上限
-4. **斜線制限**:
-   - 道路斜線: 前面道路から一定の角度で立ち上がる斜線による制限
-   - 隣地斜線: 隣地境界線から一定の角度で立ち上がる斜線による制限
-   - 北側斜線: 北側隣地境界線から一定の角度で立ち上がる斜線による制限
-5. **日影規制**: 隣地に落とす影の時間による制限
+```json
+{
+  "success": true,
+  "data": {
+    "id": "scen_123458",
+    "propertyId": "prop_123456",
+    "volumeCheckId": "vol_123456",
+    "name": "悲観的シナリオ",
+    "params": {
+      "assetType": "mansion",
+      "rentPerSqm": 3200,
+      "occupancyRate": 90,
+      "managementCostRate": 25,
+      "constructionCostPerSqm": 400000,
+      "rentalPeriod": 35,
+      "capRate": 5.0
+    },
+    "createdAt": "2025-03-26T14:10:00Z",
+    "updatedAt": "2025-03-26T14:10:00Z"
+  }
+}
+```
 
-これらの制限は、敷地の用途地域、前面道路幅員、敷地形状など、物件データに基づいて適用されます。
+**エラー**: バリデーションエラー - 400 Bad Request
 
-## 8. データモデルとの整合性
-
-このAPIは`shared/index.ts`で定義されている以下のデータモデルと整合しています：
-
-- `VolumeCheckResult`: ボリュームチェック結果
-- `BuildingParams`: 建築パラメータ
-- `Floor`: 階別情報
-- `AssetType`: アセットタイプ列挙型
-- `AssetTypeInfo`: アセットタイプ情報
-
-## 9. サンプルコード
-
-### 9.1 ボリュームチェック実行
-
-```typescript
-// フロントエンドでのボリュームチェック実行例
-import axios from 'axios';
-import { API_PATHS, BuildingParams, AssetType } from '@shared/index';
-
-// ボリュームチェック実行
-const performVolumeCheck = async (propertyId: string, buildingParams: BuildingParams) => {
-  try {
-    const response = await axios.post(API_PATHS.ANALYSIS.VOLUME_CHECK, {
-      propertyId,
-      buildingParams
-    });
-    
-    if (response.data.success) {
-      return response.data.data;
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "入力データが無効です",
+    "details": {
+      "name": "シナリオ名は必須です",
+      "params.rentPerSqm": "賃料単価は0以上の数値で指定してください"
     }
-  } catch (error) {
-    console.error('ボリュームチェックの実行に失敗しました', error);
-    throw error;
   }
-};
-
-// 使用例
-const runVolumeCheck = async () => {
-  const result = await performVolumeCheck('property_123', {
-    assetType: AssetType.MANSION,
-    floorHeight: 3.2,
-    commonAreaRatio: 15,
-    floors: 12
-  });
-  
-  console.log(`建築可能ボリューム: ${result.totalFloorArea}㎡`);
-  console.log(`容積消化率: ${result.consumptionRate}%`);
-};
+}
 ```
 
-### 9.2 3Dモデル表示
+### 9. シナリオ詳細取得 - GET /api/v1/analysis/scenarios/{scenarioId}
+
+- **認証**: 必須
+- **概要**: 特定シナリオの詳細情報取得
+
+#### URLパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| scenarioId | string | はい | シナリオID |
+
+#### クエリパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| include | string | いいえ | `profitabilityResult`を指定すると関連する収益性試算結果を含める |
+
+#### レスポンス
+
+**成功**: 200 OK
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "scen_123456",
+    "propertyId": "prop_123456",
+    "volumeCheckId": "vol_123456",
+    "name": "基本シナリオ",
+    "params": {
+      "assetType": "mansion",
+      "rentPerSqm": 3500,
+      "occupancyRate": 95,
+      "managementCostRate": 20,
+      "constructionCostPerSqm": 380000,
+      "rentalPeriod": 35,
+      "capRate": 4.5
+    },
+    "profitabilityResult": {
+      "id": "prof_123456",
+      "totalInvestment": 475759040,
+      "annualNOI": 17827390,
+      "noiYield": 3.75,
+      "irr": 5.2,
+      "paybackPeriod": 26.7,
+      "npv": 51236485
+    },
+    "createdAt": "2025-03-26T11:20:00Z",
+    "updatedAt": "2025-03-26T11:20:00Z"
+  }
+}
+```
+
+**エラー**: リソースが存在しない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定されたシナリオが見つかりません"
+  }
+}
+```
+
+### 10. シナリオ更新 - PUT /api/v1/analysis/scenarios/{scenarioId}
+
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: シナリオ情報の更新
+
+#### URLパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| scenarioId | string | はい | シナリオID |
+
+#### リクエスト
+
+```json
+{
+  "name": "基本シナリオ（修正版）",
+  "params": {
+    "assetType": "mansion",
+    "rentPerSqm": 3600,
+    "occupancyRate": 96,
+    "managementCostRate": 19,
+    "constructionCostPerSqm": 375000,
+    "rentalPeriod": 35,
+    "capRate": 4.3
+  }
+}
+```
+
+#### レスポンス
+
+**成功**: 200 OK
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "scen_123456",
+    "propertyId": "prop_123456",
+    "volumeCheckId": "vol_123456",
+    "name": "基本シナリオ（修正版）",
+    "params": {
+      "assetType": "mansion",
+      "rentPerSqm": 3600,
+      "occupancyRate": 96,
+      "managementCostRate": 19,
+      "constructionCostPerSqm": 375000,
+      "rentalPeriod": 35,
+      "capRate": 4.3
+    },
+    "createdAt": "2025-03-26T11:20:00Z",
+    "updatedAt": "2025-03-27T09:45:00Z"
+  }
+}
+```
+
+**エラー**: リソースが存在しない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定されたシナリオが見つかりません"
+  }
+}
+```
+
+### 11. シナリオ削除 - DELETE /api/v1/analysis/scenarios/{scenarioId}
+
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: シナリオの削除
+
+#### URLパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| scenarioId | string | はい | シナリオID |
+
+#### レスポンス
+
+**成功**: 204 No Content
+
+**エラー**: リソースが存在しない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定されたシナリオが見つかりません"
+  }
+}
+```
+
+## 実装ノート
+
+### 計算プロセス
+
+#### ボリュームチェック計算の流れ
+
+1. 物件情報（敷地面積、用途地域、建蔽率、容積率など）を取得
+2. 建築パラメータ（階高、共用部率、階数など）を適用
+3. 以下の法規制に基づいた計算を実行:
+   - 建蔽率による建築面積制限
+   - 容積率による延床面積制限
+   - 高さ制限（絶対高さ、斜線制限、日影規制）
+4. 各制限の中で最も厳しい制限を適用
+5. 容積消化率（実際の延床面積 ÷ 法定上限延床面積 × 100）を計算
+6. 建物形状を簡易的な箱型モデルとして生成
+7. 階別の床面積内訳と専有面積・共用面積を計算
+
+#### 収益性試算計算の流れ
+
+1. ボリュームチェック結果から建物規模を取得
+2. 土地取得費用（物件の価格）を取得
+3. 建設費用（延床面積 × 建設単価）を計算
+4. 諸経費（建設費用 × 4%）を計算
+5. 総投資額（土地取得費 + 建設費 + 諸経費）を計算
+6. 年間賃料収入（専有面積 × 賃料単価 × 稼働率）を計算
+7. 年間運営費（賃料収入 × 管理コスト率）を計算
+8. 年間修繕費（建設費 × 1%）を計算
+9. 年間不動産税（総投資額 × 1%）を計算
+10. 年間純収益（賃料収入 - 運営費 - 修繕費 - 不動産税）を計算
+11. 投資利回り（年間純収益 ÷ 総投資額 × 100）を計算
+12. 内部収益率（IRR）を計算（DCF法による）
+13. 投資回収期間を計算
+14. 正味現在価値（NPV）を計算
+
+### 3Dモデルデータ形式
+
+3Dモデルデータは、Three.jsで直接利用可能な形式で提供されます。以下の要素を含みます：
+
+1. **敷地形状**: 2D境界点の配列（地面レベルで表示）
+2. **建物形状**: 箱型の寸法と位置
+3. **視点情報**: 推奨されるカメラ位置と向き
+
+```json
+{
+  "modelType": "three.js",
+  "data": {
+    "building": {
+      "position": [0, 0, 0],
+      "dimensions": [width, depth, height]
+    },
+    "property": {
+      "points": [[x1, y1], [x2, y2], ...],
+      "elevation": 0
+    },
+    "camera": {
+      "position": [posX, posY, posZ],
+      "target": [tarX, tarY, tarZ]
+    }
+  }
+}
+```
+
+### 拡張性と互換性
+
+1. **アセットタイプの追加**
+   - 新しいアセットタイプを追加する場合、AssetType列挙型を拡張
+   - アセットタイプごとのデフォルトパラメータを提供
+
+2. **計算エンジンのバージョニング**
+   - 計算ロジックの大幅な変更時は、APIバージョンを更新
+   - 古いバージョンの計算結果との互換性を維持
+
+## 型定義参照
 
 ```typescript
-// フロントエンドでの3Dモデル表示例（Three.js使用）
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import axios from 'axios';
-import { API_PATHS } from '@shared/index';
+// ボリュームチェックパラメータの型
+export interface BuildingParams {
+  floorHeight: number; // 階高 (m)
+  commonAreaRatio: number; // 共用部率 (%)
+  floors: number; // 階数
+  roadWidth?: number; // 前面道路幅員 (m)
+  assetType: AssetType; // アセットタイプ
+}
 
-// 3Dモデル表示
-const display3DModel = async (volumeCheckId: string, containerId: string) => {
-  try {
-    // モデルデータ取得
-    const response = await axios.get(
-      `${API_PATHS.ANALYSIS.VOLUME_CHECK}/${volumeCheckId}/model`,
-      { params: { format: 'three.js' } }
-    );
-    
-    // Three.js初期化
-    const container = document.getElementById(containerId);
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    
-    renderer.setSize(width, height);
-    container.appendChild(renderer.domElement);
-    
-    // カメラ設定
-    camera.position.set(50, 30, 50);
-    camera.lookAt(0, 0, 0);
-    
-    // コントロール追加
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    
-    // ライト追加
-    scene.add(new THREE.AmbientLight(0x404040));
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    directionalLight.position.set(1, 1, 1);
-    scene.add(directionalLight);
-    
-    // モデルローダー
-    const loader = new THREE.ObjectLoader();
-    const object = loader.parse(response.data);
-    scene.add(object);
-    
-    // レンダリングループ
-    const animate = () => {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    
-    animate();
-    
-    // リサイズハンドラ
-    window.addEventListener('resize', () => {
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-    });
-    
-    return { scene, camera, renderer };
-  } catch (error) {
-    console.error('3Dモデルの表示に失敗しました', error);
-    throw error;
-  }
-};
+// 階別データの型
+export interface FloorData {
+  floor: number; // 階数
+  floorArea: number; // 床面積 (m²)
+  privateArea: number; // 専有面積 (m²)
+  commonArea: number; // 共用面積 (m²)
+}
+
+// ボリュームチェック結果の型
+export interface VolumeCheckResult {
+  buildingArea: number; // 建築面積 (m²)
+  totalFloorArea: number; // 延床面積 (m²)
+  buildingHeight: number; // 建物高さ (m)
+  consumptionRate: number; // 容積消化率 (%)
+  floors: number; // 階数
+  floorBreakdown: FloorData[]; // 階別内訳
+  regulationChecks: RegulationCheck[]; // 法規制チェック結果
+}
+
+// 法規制チェック結果の型
+export interface RegulationCheck {
+  name: string; // 規制項目名
+  regulationValue: string; // 規制値
+  plannedValue: string; // 計画値
+  compliant: boolean; // 適合判定
+}
+
+// 3Dモデルデータの型
+export interface Model3DData {
+  modelType: string; // モデルの種類（three.js, cesiumなど）
+  data: any; // モデルデータ（具体的な形式は実装により異なる）
+}
+
+// ボリュームチェックの型（DBモデルに対応）
+export interface VolumeCheck extends Timestamps {
+  id: ID;
+  propertyId: ID; // 関連物件ID
+  assetType: AssetType; // アセットタイプ
+  buildingArea: number; // 建築面積 (m²)
+  totalFloorArea: number; // 延床面積 (m²)
+  buildingHeight: number; // 建物高さ (m)
+  consumptionRate: number; // 容積消化率 (%)
+  floors: number; // 階数
+  floorBreakdown: FloorData[]; // 階別内訳
+  model3dData?: Model3DData; // 3Dモデルデータ
+  regulationChecks: RegulationCheck[]; // 法規制チェック結果
+  userId?: ID; // 作成したユーザーID
+}
+
+// 収益性試算パラメータの型
+export interface FinancialParams {
+  rentPerSqm: number; // 賃料単価 (円/m²)
+  occupancyRate: number; // 稼働率 (%)
+  managementCostRate: number; // 管理コスト率 (%)
+  constructionCostPerSqm: number; // 建設単価 (円/m²)
+  rentalPeriod: number; // 運用期間 (年)
+  capRate: number; // 還元利回り (%)
+}
+
+// 年間財務データの型
+export interface AnnualFinancialData {
+  year: number; // 年次
+  rentalIncome: number; // 賃料収入 (円)
+  operatingExpenses: number; // 運営支出 (円)
+  netOperatingIncome: number; // 年間純収益 (円)
+  accumulatedIncome: number; // 累計収益 (円)
+}
+
+// 収益性試算結果の型
+export interface ProfitabilityResult extends Timestamps {
+  id: ID;
+  propertyId: ID; // 関連物件ID
+  volumeCheckId: ID; // 関連ボリュームチェックID
+  assetType: AssetType; // アセットタイプ
+  parameters: FinancialParams; // 計算パラメータ
+  
+  // 投資概要
+  landPrice: number; // 土地取得費 (円)
+  constructionCost: number; // 建設費 (円)
+  miscExpenses: number; // 諸経費 (円)
+  totalInvestment: number; // 総投資額 (円)
+  
+  // 年間収支
+  annualRentalIncome: number; // 年間賃料収入 (円)
+  annualOperatingExpenses: number; // 年間運営費 (円)
+  annualMaintenance: number; // 年間修繕費 (円)
+  annualPropertyTax: number; // 年間不動産税 (円)
+  annualNOI: number; // 年間純収益 (円)
+  
+  // 収益指標
+  noiYield: number; // 投資利回り (%)
+  irr: number; // 内部収益率 (%)
+  paybackPeriod: number; // 投資回収期間 (年)
+  npv: number; // 正味現在価値 (円)
+  
+  // 詳細データ
+  annualFinancials: AnnualFinancialData[]; // 年次ごとの財務データ
+  
+  userId?: ID; // 作成したユーザーID
+}
+
+// シナリオパラメータの型
+export interface ScenarioParams extends FinancialParams {
+  assetType: AssetType; // アセットタイプ
+}
+
+// シナリオの型（DBモデルに対応）
+export interface Scenario extends Timestamps {
+  id: ID;
+  propertyId: ID; // 関連物件ID
+  volumeCheckId: ID; // 関連ボリュームチェックID
+  name: string; // シナリオ名
+  params: ScenarioParams; // シナリオパラメータ
+  profitabilityResult?: ProfitabilityResult; // 収益性試算結果
+  userId?: ID; // 作成したユーザーID
+}
 ```
-
-## 10. セキュリティ考慮事項
-
-### 10.1 アクセス制御
-
-- 全てのエンドポイントはユーザー認証が必要
-- ボリュームチェック結果は組織IDに基づいてアクセス制御
-- 異なる組織のボリュームチェック結果にはアクセス不可
-
-### 10.2 入力バリデーション
-
-- 全てのユーザー入力は厳格にバリデーション
-- 特に建築パラメータは現実的な範囲でのみ受け付け
-- 極端な値による計算リソース消費の防止
-
-### 10.3 計算リソース保護
-
-- 複雑な計算はジョブキューで非同期処理
-- 計算時間の上限設定（30秒）
-- 同時実行数の制限（組織あたり2件）
-
-### 10.4 レート制限
-
-- ボリュームチェック実行は10回/分/ユーザーに制限
-- PDF出力は20回/時間/ユーザーに制限
-- 模型データ取得は60回/分/ユーザーに制限
-
-## 11. エラーハンドリング
-
-一般的なボリュームチェック関連のエラーコード：
-
-| エラーコード | 説明 |
-|------------|------|
-| `CALCULATION_ERROR` | ボリュームチェック計算中のエラー |
-| `INVALID_PROPERTY_DATA` | 物件データが不完全または不正 |
-| `SHAPE_DATA_REQUIRED` | 敷地形状データが必要な操作 |
-| `UNSUPPORTED_FORMAT` | サポートされていない出力形式 |
-| `EXPORT_GENERATION_ERROR` | PDF生成時のエラー |
-
-## 12. キャッシング戦略
-
-特定のエンドポイントにはキャッシング戦略が適用されます：
-
-| エンドポイント | キャッシュTTL | 条件 |
-|--------------|-------------|------|
-| GET /api/analysis/volume-check/{id} | 15分 | ETagがサポート |
-| GET /api/properties/{id}/volume-checks | 5分 | ETagがサポート |
-| GET /api/analysis/volume-check/{id}/model | 1時間 | 変更なし |

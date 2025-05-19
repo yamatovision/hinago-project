@@ -2,74 +2,75 @@
  * 認証関連のユーティリティ関数
  */
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
-import config from '../../config';
-import { UserDocument } from '../../db/models';
-import { AuthToken } from '../../types';
+import { AuthUser, JwtPayload, UserRole } from '../../types';
+import { authConfig } from '../../config';
+import { logger } from '../../common/utils';
 
 /**
- * アクセストークン生成関数
- * @param user ユーザードキュメント
+ * アクセストークンを生成する
+ * @param user ユーザー情報
  * @returns 生成されたアクセストークン
  */
-export const generateAccessToken = (user: UserDocument): string => {
-  const payload = {
-    id: user._id,
+export const generateAccessToken = (user: AuthUser): string => {
+  const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+  };
+
+  return jwt.sign(
+    payload,
+    authConfig.jwt.secret,
+    { expiresIn: authConfig.jwt.accessTokenExpiration }
+  );
+};
+
+/**
+ * アクセストークンを検証する
+ * @param token トークン文字列
+ * @returns 検証結果（成功時はペイロード、失敗時はnull）
+ */
+export const verifyAccessToken = (token: string): JwtPayload | null => {
+  try {
+    return jwt.verify(token, authConfig.jwt.secret) as JwtPayload;
+  } catch (error) {
+    logger.debug('トークン検証エラー', { error });
+    return null;
+  }
+};
+
+/**
+ * Bearer トークンからアクセストークンを抽出する
+ * @param bearerToken Authorization ヘッダーの値
+ * @returns アクセストークンまたはnull
+ */
+export const extractTokenFromBearer = (bearerToken?: string): string | null => {
+  if (!bearerToken || !bearerToken.startsWith('Bearer ')) {
+    return null;
+  }
+  return bearerToken.split(' ')[1];
+};
+
+/**
+ * リフレッシュトークンの有効期限を計算する
+ * @param rememberMe 長期間ログインを保持するかどうか
+ * @returns 有効期限（秒）
+ */
+export const calculateRefreshTokenExpiration = (rememberMe?: boolean): number => {
+  // rememberMe が true の場合は通常の有効期限、それ以外の場合は1日
+  return rememberMe ? authConfig.jwt.refreshTokenExpiration : 86400; // 86400秒 = 1日
+};
+
+/**
+ * ユーザー情報から認証用のユーザー情報を抽出する（パスワードなどの機密情報を除外）
+ * @param user ユーザー情報
+ * @returns 認証用のユーザー情報
+ */
+export const extractAuthUser = (user: any): AuthUser => {
+  return {
+    id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role,
-    organizationId: user.organizationId,
+    role: user.role as UserRole,
   };
-
-  return jwt.sign(payload, config.auth.jwt.secret, {
-    expiresIn: config.auth.jwt.accessTokenExpiry,
-  });
-};
-
-/**
- * リフレッシュトークン生成関数
- * @returns 生成されたリフレッシュトークン
- */
-export const generateRefreshToken = (): string => {
-  return crypto.randomBytes(40).toString('hex');
-};
-
-/**
- * リフレッシュトークンの有効期限を計算する関数
- * @param rememberMe 「ログイン状態を保持する」が選択されているか
- * @returns リフレッシュトークンの有効期限日時
- */
-export const calculateRefreshTokenExpiry = (rememberMe: boolean = false): Date => {
-  const expirySeconds = rememberMe
-    ? config.auth.jwt.refreshTokenExpiryRemember
-    : config.auth.jwt.refreshTokenExpiry;
-
-  return new Date(Date.now() + expirySeconds * 1000);
-};
-
-/**
- * トークンオブジェクトを生成する関数
- * @param accessToken アクセストークン
- * @param refreshToken リフレッシュトークン
- * @param expiresIn アクセストークンの有効期限（秒）
- * @returns トークンオブジェクト
- */
-export const createTokenResponse = (
-  accessToken: string,
-  refreshToken: string,
-  expiresIn: number = config.auth.jwt.accessTokenExpiry
-): AuthToken => {
-  return {
-    token: accessToken,
-    refreshToken: refreshToken,
-    expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
-  };
-};
-
-/**
- * パスワードリセットトークンを生成する関数
- * @returns 生成されたパスワードリセットトークン
- */
-export const generatePasswordResetToken = (): string => {
-  return crypto.randomBytes(32).toString('hex');
 };

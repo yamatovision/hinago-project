@@ -1,32 +1,50 @@
-import React from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
-
-interface LoadingSpinnerProps {
-  message?: string;
-}
-
 /**
  * ローディングスピナーコンポーネント
  */
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ message = 'Loading...' }) => {
+import { CircularProgress, Box } from '@mui/material';
+
+interface LoadingSpinnerProps {
+  size?: number;
+  color?: 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' | 'inherit';
+  fullPage?: boolean;
+}
+
+const LoadingSpinner = ({ 
+  size = 40, 
+  color = 'primary',
+  fullPage = false
+}: LoadingSpinnerProps) => {
+  if (fullPage) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          zIndex: 9999,
+        }}
+      >
+        <CircularProgress size={size} color={color} />
+      </Box>
+    );
+  }
+
   return (
     <Box
       sx={{
         display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
         justifyContent: 'center',
-        height: '100%',
-        minHeight: '200px',
-        padding: 3,
+        alignItems: 'center',
+        p: 2,
       }}
     >
-      <CircularProgress size={48} color="primary" />
-      {message && (
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-          {message}
-        </Typography>
-      )}
+      <CircularProgress size={size} color={color} />
     </Box>
   );
 };

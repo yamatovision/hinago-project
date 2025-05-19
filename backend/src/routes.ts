@@ -1,18 +1,22 @@
 /**
- * アプリケーションルート定義
+ * アプリケーションのルーター
+ * 各機能のルーターをまとめる
  */
-import { Router } from 'express';
+import express from 'express';
+import { appConfig } from './config';
 import authRoutes from './features/auth/auth.routes';
-import config from './config';
 
-const router = Router();
+const router = express.Router();
 
-// APIバージョンプレフィックス
-const apiPrefix = config.app.app.apiPrefix;
+// APIのバージョンプレフィックスを取得
+const apiPrefix = appConfig.app.apiPrefix;
 
-// 認証ルート
+// 各機能のルーターをマウント
 router.use(`${apiPrefix}/auth`, authRoutes);
 
-// TODO: 他のルートモジュールをここに追加
+// API Health Check
+router.get(`${apiPrefix}/health`, (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 export default router;

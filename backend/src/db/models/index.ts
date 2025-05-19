@@ -1,15 +1,10 @@
 /**
- * データベースモデルのエクスポート
+ * モデルをエクスポート
  */
-import User, { UserDocument } from './User';
-import Organization, { OrganizationDocument } from './Organization';
-import RefreshToken, { RefreshTokenDocument } from './RefreshToken';
+import UserModel from './User';
+import RefreshTokenModel from './RefreshToken';
 
 export {
-  User,
-  UserDocument,
-  Organization,
-  OrganizationDocument,
-  RefreshToken,
-  RefreshTokenDocument,
+  UserModel,
+  RefreshTokenModel,
 };

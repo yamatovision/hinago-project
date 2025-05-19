@@ -2,17 +2,20 @@
  * エラーハンドリングミドルウェア
  */
 import { Request, Response, NextFunction } from 'express';
-import { sendError, ErrorCodes } from '../utils/response';
-import logger from '../utils/logger';
+import { logger } from '../utils';
+import { responseUtils } from '../utils';
 
-// カスタムエラークラス
+/**
+ * アプリケーションエラークラス
+ */
 export class AppError extends Error {
   statusCode: number;
   code: string;
-  details?: any;
-  
-  constructor(message: string, statusCode = 500, code = ErrorCodes.INTERNAL_SERVER_ERROR, details?: any) {
+  details?: Record<string, any>;
+
+  constructor(message: string, statusCode = 500, code = 'SERVER_ERROR', details?: Record<string, any>) {
     super(message);
+    this.name = this.constructor.name;
     this.statusCode = statusCode;
     this.code = code;
     this.details = details;
@@ -20,47 +23,50 @@ export class AppError extends Error {
   }
 }
 
-// Not Found エラーハンドラー
+/**
+ * 存在しないルートへのアクセス時のエラーハンドリング
+ */
 export const notFoundHandler = (req: Request, res: Response, next: NextFunction) => {
-  const error = new AppError(
-    `リクエストされたパス ${req.originalUrl} が見つかりません`,
-    404,
-    ErrorCodes.RESOURCE_NOT_FOUND
-  );
-  next(error);
+  const err = new AppError(`要求されたパス ${req.originalUrl} が見つかりません`, 404, 'NOT_FOUND');
+  next(err);
 };
 
-// グローバルエラーハンドラー
-export const errorHandler = (
-  error: AppError,
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+/**
+ * グローバルエラーハンドラ
+ */
+export const errorHandler = (err: AppError | Error, req: Request, res: Response, next: NextFunction) => {
+  // デフォルトのエラー情報
+  let statusCode = 500;
+  let message = 'サーバーエラーが発生しました';
+  let code = 'SERVER_ERROR';
+  let details = undefined;
+
+  // AppErrorの場合は詳細情報を取得
+  if (err instanceof AppError) {
+    statusCode = err.statusCode;
+    message = err.message;
+    code = err.code;
+    details = err.details;
+  } else {
+    // その他のエラーの場合
+    message = err.message || message;
+  }
+
+  // 本番環境では内部エラーの詳細を隠す
+  if (process.env.NODE_ENV === 'production' && statusCode >= 500) {
+    message = 'サーバーエラーが発生しました';
+    details = undefined;
+  }
+
   // エラーをログに記録
-  logger.error(`Error: ${error.message}`, {
-    stack: error.stack,
-    path: req.path,
-    method: req.method,
-    statusCode: error.statusCode || 500,
-    errorCode: error.code || ErrorCodes.INTERNAL_SERVER_ERROR,
+  const logMethod = statusCode >= 500 ? logger.error : logger.warn;
+  logMethod(`${statusCode} - ${message} - ${req.originalUrl} - ${req.method} - ${req.ip}`, {
+    error: err.stack || err,
+    body: req.body,
+    params: req.params,
+    query: req.query,
   });
-  
-  // エラーコードとステータスコードの設定
-  const statusCode = error.statusCode || 500;
-  const errorCode = error.code || ErrorCodes.INTERNAL_SERVER_ERROR;
-  
-  // 本番環境ではスタックトレースを送信しない
-  const details = process.env.NODE_ENV === 'production' 
-    ? error.details 
-    : { ...error.details, stack: error.stack };
-  
-  // エラーレスポンスを送信
-  return sendError(
-    res,
-    error.message || 'サーバーエラーが発生しました',
-    statusCode,
-    errorCode,
-    details
-  );
+
+  // クライアントにレスポンスを返す
+  return responseUtils.sendError(res, message, code, statusCode, details);
 };

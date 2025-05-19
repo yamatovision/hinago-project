@@ -1,92 +1,126 @@
 /**
- * テスト用データベースヘルパー
+ * データベース接続のテストヘルパー
+ * MongoDB Memory Serverを使用したテストデータベース管理
  */
-import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { User, Organization, RefreshToken } from '../../src/db/models';
+import mongoose from 'mongoose';
+import { UserModel } from '../../src/db/models';
+import { logger } from '../../src/common/utils';
+import { authConfig } from '../../src/config';
 
-// インメモリMongoDBサーバー
+// MongoDB Memory Serverインスタンス
 let mongoServer: MongoMemoryServer;
 
 /**
- * テスト用DBの接続
+ * テスト用データベースのセットアップ
  */
-export const connectTestDB = async (): Promise<void> => {
-  // インメモリMongoDBを起動
-  mongoServer = await MongoMemoryServer.create();
-  const uri = mongoServer.getUri();
-  
-  // Mongooseの接続
-  await mongoose.connect(uri);
-};
+export const setupTestDatabase = async () => {
+  try {
+    // すでに接続されている場合はスキップ
+    if (mongoose.connection.readyState === 1) {
+      logger.info('テスト用データベースにすでに接続されています');
+      return;
+    }
 
-/**
- * テスト用DBの切断
- */
-export const disconnectTestDB = async (): Promise<void> => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.connection.close();
-  await mongoServer.stop();
-};
-
-/**
- * テスト用DBのクリア
- */
-export const clearTestDB = async (): Promise<void> => {
-  const collections = mongoose.connection.collections;
-  
-  for (const key in collections) {
-    const collection = collections[key];
-    await collection.deleteMany({});
+    // MongoDB Memory Serverを起動
+    mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
+    
+    // Mongooseで接続
+    await mongoose.connect(uri);
+    logger.info('テスト用データベースに接続しました');
+    
+    // 初期データを設定
+    await setupInitialData();
+  } catch (error) {
+    logger.error('テスト用データベース初期化エラー', { error });
+    throw error;
   }
 };
 
 /**
- * テスト用の組織データを作成
+ * テスト後のデータベースクリーンアップ
  */
-export const createTestOrganization = async (name = 'テスト組織'): Promise<any> => {
-  return await Organization.create({
-    name,
-    subscription: 'free',
-  });
+export const cleanupTestDatabase = async () => {
+  try {
+    if (mongoose.connection.readyState !== 0) {
+      // コレクションをクリアする場合はここで実行
+      // const collections = mongoose.connection.collections;
+      // for (const key in collections) {
+      //   await collections[key].deleteMany({});
+      // }
+      
+      // データベース接続を終了
+      await mongoose.disconnect();
+    }
+    
+    // MongoDB Memory Serverを停止
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
+    
+    logger.info('テスト用データベースをクリーンアップしました');
+  } catch (error) {
+    logger.error('テスト用データベースクリーンアップエラー', { error });
+    throw error;
+  }
 };
 
 /**
- * テスト用のユーザーデータを作成
+ * 初期テストデータのセットアップ
  */
-export const createTestUser = async (
-  email = 'test@example.com',
-  password = 'password123',
-  name = 'テストユーザー',
-  organizationId?: string
-): Promise<any> => {
-  // 組織IDがない場合は新規作成
-  if (!organizationId) {
-    const organization = await createTestOrganization();
-    organizationId = organization._id;
+const setupInitialData = async () => {
+  try {
+    // 管理者ユーザーの初期化
+    await UserModel.initializeDefaultUsers();
+    logger.info('テスト用初期データのセットアップが完了しました');
+  } catch (error) {
+    logger.error('テスト用初期データセットアップエラー', { error });
+    throw error;
+  }
+};
+
+/**
+ * テスト用のユーザーを作成する
+ * @param userData ユーザーデータ
+ * @returns 作成されたユーザー
+ */
+export const createTestUser = async (userData: any) => {
+  try {
+    return await UserModel.create(userData);
+  } catch (error) {
+    logger.error('テストユーザー作成エラー', { error });
+    throw error;
+  }
+};
+
+/**
+ * デバッグ用：データベースの状態をダンプする
+ */
+export const dumpDatabaseState = async () => {
+  if (mongoose.connection.readyState !== 1) {
+    return { status: 'disconnected' };
   }
   
-  return await User.create({
-    email,
-    password,
-    name,
-    role: 'user',
-    organizationId,
-  });
-};
-
-/**
- * テスト用のリフレッシュトークンを作成
- */
-export const createTestRefreshToken = async (
-  userId: string,
-  token = 'test-refresh-token',
-  expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-): Promise<any> => {
-  return await RefreshToken.create({
-    userId,
-    token,
-    expiresAt,
-    isRevoked: false,
-  });
+  try {
+    const db = mongoose.connection.db;
+    if (!db) {
+      return { status: 'no-database' };
+    }
+    
+    // ユーザーコレクションの状態
+    const users = await db.collection('users').find({}).toArray();
+    
+    // リフレッシュトークンコレクションの状態
+    const refreshTokens = await db.collection('refreshtokens').find({}).toArray();
+    
+    return {
+      users: users.map((u: any) => ({ id: u._id, email: u.email, role: u.role })),
+      refreshTokens: refreshTokens.length,
+      collections: Object.keys(mongoose.connection.collections),
+    };
+  } catch (error) {
+    logger.error('データベース状態ダンプエラー', { error });
+    return { error: String(error) };
+  }
 };

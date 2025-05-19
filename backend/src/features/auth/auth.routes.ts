@@ -1,68 +1,50 @@
 /**
- * 認証ルート
+ * 認証ルーター
+ * 認証関連のエンドポイントを定義
  */
-import { Router } from 'express';
-import * as authController from './auth.controller';
-import { requireAuth } from '../../common/middlewares';
+import express from 'express';
 import { validate } from '../../common/middlewares';
-import {
-  validateLogin,
-  validateRegister,
-  validatePasswordResetRequest,
-  validatePasswordResetConfirm,
-  validateRefreshToken,
-} from './auth.validator';
-import { API_PATHS } from '../../types';
+import * as authController from './auth.controller';
+import { validateLogin, validateRefreshToken } from './auth.validator';
+import { rateLimiter } from '../../common/middlewares/auth.middleware';
 
-const router = Router();
+const router = express.Router();
 
-// 登録ルート
-router.post(
-  '/register',
-  validate(validateRegister),
-  authController.register
-);
-
-// ログインルート
+/**
+ * @route   POST /api/v1/auth/login
+ * @desc    ユーザー認証とトークン取得
+ * @access  Public
+ */
 router.post(
   '/login',
+  rateLimiter(10, 60000), // 1分間に10回までの制限
   validate(validateLogin),
   authController.login
 );
 
-// ログアウトルート
-router.post(
-  '/logout',
-  requireAuth,
-  authController.logout
-);
+/**
+ * @route   GET /api/v1/auth/me
+ * @desc    認証ユーザー情報取得
+ * @access  Private
+ */
+router.get('/me', authController.getAuthUser);
 
-// トークン更新ルート
+/**
+ * @route   POST /api/v1/auth/refresh
+ * @desc    リフレッシュトークンによるアクセストークン更新
+ * @access  Public
+ */
 router.post(
   '/refresh',
   validate(validateRefreshToken),
   authController.refreshToken
 );
 
-// パスワードリセット要求ルート
-router.post(
-  '/password-reset/request',
-  validate(validatePasswordResetRequest),
-  authController.requestPasswordReset
-);
-
-// パスワードリセット確認ルート
-router.post(
-  '/password-reset/confirm',
-  validate(validatePasswordResetConfirm),
-  authController.confirmPasswordReset
-);
-
-// 現在のユーザー情報取得ルート
-router.get(
-  '/me',
-  requireAuth,
-  authController.getCurrentUser
-);
+/**
+ * @route   POST /api/v1/auth/logout
+ * @desc    ユーザーログアウト
+ * @access  Private
+ */
+router.post('/logout', authController.logout);
 
 export default router;

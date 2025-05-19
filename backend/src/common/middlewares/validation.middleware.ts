@@ -3,40 +3,33 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import { ValidationChain, validationResult } from 'express-validator';
-import { sendError, ErrorCodes } from '../utils/response';
+import { responseUtils } from '../utils';
 
 /**
- * express-validatorを使用したバリデーションミドルウェア
+ * リクエストのバリデーションを行い、エラーがあれば適切なレスポンスを返す
  * @param validations バリデーションルールの配列
- * @returns バリデーションミドルウェア
  */
 export const validate = (validations: ValidationChain[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
-    // すべてのバリデーションルールを実行
+    // 全てのバリデーションを実行
     await Promise.all(validations.map(validation => validation.run(req)));
     
     // バリデーション結果を取得
     const errors = validationResult(req);
     
+    // エラーがなければ次のミドルウェアへ
     if (errors.isEmpty()) {
       return next();
     }
     
-    // バリデーションエラーがある場合
-    const formattedErrors: { [key: string]: string } = {};
-    
+    // エラーがあれば整形してレスポンスを返す
+    const errorDetails: Record<string, string> = {};
     errors.array().forEach(error => {
-      if (error.type === 'field') {
-        formattedErrors[error.path] = error.msg;
+      if (error.type === 'field' && error.path && error.msg) {
+        errorDetails[error.path] = error.msg;
       }
     });
     
-    return sendError(
-      res,
-      '入力データが不正です',
-      422,
-      ErrorCodes.VALIDATION_ERROR,
-      formattedErrors
-    );
+    return responseUtils.sendValidationError(res, errorDetails);
   };
 };

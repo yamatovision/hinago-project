@@ -1,65 +1,70 @@
 /**
- * アプリケーションエントリーポイント
+ * アプリケーションのエントリーポイント
  */
-import express, { Application } from 'express';
+import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import morgan from 'morgan';
-import cookieParser from 'cookie-parser';
-import { connectToDatabase } from './db/connection';
-import config from './config';
+import { appConfig } from './config';
+import { authRequired, errorHandler, notFoundHandler } from './common/middlewares';
+import { logger } from './common/utils';
+import { initializeDatabase } from './db/connection';
 import routes from './routes';
-import { 
-  notFoundHandler, 
-  errorHandler,
-  checkPublicEndpoint
-} from './common/middlewares';
-import logger from './common/utils/logger';
 
-// Expressアプリケーションの作成
-const app: Application = express();
+// Expressアプリケーションを初期化
+const app = express();
+
+// 環境変数とポート設定
+const env = appConfig.app.env;
+const port = appConfig.app.port;
 
 // ミドルウェアの設定
-app.use(helmet()); // セキュリティヘッダーの設定
-app.use(cors(config.app.cors)); // CORS設定
-app.use(express.json()); // JSONリクエストボディのパース
-app.use(express.urlencoded({ extended: true })); // URL-encodedリクエストボディのパース
-app.use(cookieParser(config.auth.session.secret)); // Cookieのパース
-app.use(morgan(config.app.logging.format)); // HTTPリクエストのロギング
+app.use(cors(appConfig.cors));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 認証チェックミドルウェア（パブリックエンドポイントはスキップ）
-app.use(checkPublicEndpoint);
+// ロギングミドルウェア（開発環境のみ詳細表示）
+if (env === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
 
-// ルートの適用
+// 認証ミドルウェア（すべてのルートに適用）
+app.use(authRequired);
+
+// ルーターをマウント
 app.use(routes);
 
-// 404ハンドラー（未定義のルートに対して）
+// 404ハンドラー
 app.use(notFoundHandler);
 
 // エラーハンドラー
 app.use(errorHandler);
 
-// アプリケーションの起動
+// サーバーを起動
 const startServer = async () => {
   try {
-    // データベース接続
-    await connectToDatabase();
+    // データベース接続の初期化
+    await initializeDatabase();
     
-    // サーバーの起動
-    const PORT = config.app.app.port;
-    app.listen(PORT, () => {
-      logger.info(`サーバーが起動しました: http://localhost:${PORT}`);
-      logger.info(`環境: ${config.app.app.env}`);
+    // デフォルトユーザーの初期化
+    const { UserModel } = require('./db/models');
+    await UserModel.initializeDefaultUsers();
+    
+    // サーバーを起動
+    app.listen(port, () => {
+      logger.info(`サーバーが起動しました: ${env}環境 ポート${port}`);
     });
-  } catch (error: any) {
-    logger.error('サーバー起動エラー:', { error: error.message });
+  } catch (error) {
+    logger.error('サーバー起動に失敗しました', { error });
     process.exit(1);
   }
 };
 
-// テスト環境でない場合のみサーバー起動
+// 非テスト環境の場合、サーバーを起動
 if (process.env.NODE_ENV !== 'test') {
   startServer();
 }
 
-export default app; // テスト用にエクスポート
+// テスト用にアプリケーションをエクスポート
+export default app;

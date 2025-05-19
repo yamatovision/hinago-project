@@ -1,197 +1,252 @@
-import React, { useState } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  TextField,
-  Typography,
-  FormControlLabel,
-  Checkbox,
-  Link,
-  Alert,
-  InputAdornment,
-  IconButton,
-} from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useAuth } from '@common/hooks/useAuth';
-
 /**
  * ログインフォームコンポーネント
  */
-const LoginForm: React.FC = () => {
-  const navigate = useNavigate();
-  const { login, error, clearError, isLoading } = useAuth();
-  
+import { useState } from 'react';
+import { 
+  Box, 
+  TextField, 
+  Button, 
+  Typography, 
+  Paper, 
+  InputAdornment, 
+  IconButton,
+  Alert
+} from '@mui/material';
+import { Visibility, VisibilityOff, Business } from '@mui/icons-material';
+import { LoginRequest } from '../../../../shared';
+import { useAuth } from '../../../common/hooks/useAuth';
+import LoadingSpinner from '../../../common/components/LoadingSpinner';
+
+interface LoginFormProps {
+  onSuccess?: () => void;
+}
+
+const LoginForm = ({ onSuccess }: LoginFormProps) => {
+  // 認証フックを使用
+  const { login, isLoading, error } = useAuth();
+
   // フォーム状態
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
-  // バリデーション状態
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  
-  /**
-   * メールアドレスの変更ハンドラ
-   */
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
-    setEmailError('');
-    clearError();
-  };
-  
-  /**
-   * パスワードの変更ハンドラ
-   */
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(e.target.value);
-    setPasswordError('');
-    clearError();
-  };
-  
-  /**
-   * パスワード表示の切り替えハンドラ
-   */
-  const handleTogglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-  
-  /**
-   * フォーム送信ハンドラ
-   */
+  const [validationErrors, setValidationErrors] = useState({
+    email: '',
+    password: '',
+  });
+
+  // フォーム送信処理
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // バリデーションリセット
-    setEmailError('');
-    setPasswordError('');
-    
     // バリデーションチェック
     let isValid = true;
-    
-    // メールアドレスの検証
+    const errors = {
+      email: '',
+      password: '',
+    };
+
+    // メールアドレスバリデーション
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
-      setEmailError('メールアドレスを入力してください');
+      errors.email = 'メールアドレスを入力してください';
       isValid = false;
     } else if (!emailRegex.test(email)) {
-      setEmailError('有効なメールアドレスを入力してください');
+      errors.email = '有効なメールアドレスを入力してください';
       isValid = false;
     }
-    
-    // パスワードの検証
+
+    // パスワードバリデーション
     if (!password) {
-      setPasswordError('パスワードを入力してください');
+      errors.password = 'パスワードを入力してください';
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError('パスワードは6文字以上で入力してください');
+      errors.password = 'パスワードは6文字以上で入力してください';
       isValid = false;
     }
+
+    // バリデーションエラーがあれば表示
+    if (!isValid) {
+      setValidationErrors(errors);
+      return;
+    }
+
+    // ログインリクエスト
+    const loginData: LoginRequest = {
+      email,
+      password,
+    };
+
+    const success = await login(loginData);
     
-    if (!isValid) return;
-    
-    try {
-      // ログイン処理
-      await login(email, password, rememberMe);
-      // ログイン成功時はダッシュボードへリダイレクト
-      // 注意: 現時点ではダッシュボードがないためルートに遷移
-      navigate('/');
-    } catch (error) {
-      console.error('ログインエラー:', error);
+    if (success && onSuccess) {
+      onSuccess();
     }
   };
-  
+
+  // パスワード表示切り替え
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword((prev) => !prev);
+  };
+
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      
-      <TextField
-        margin="normal"
-        required
-        fullWidth
-        id="email"
-        label="メールアドレス"
-        name="email"
-        autoComplete="email"
-        autoFocus
-        value={email}
-        onChange={handleEmailChange}
-        error={!!emailError}
-        helperText={emailError}
-        disabled={isLoading}
-      />
-      
-      <TextField
-        margin="normal"
-        required
-        fullWidth
-        name="password"
-        label="パスワード"
-        type={showPassword ? 'text' : 'password'}
-        id="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={handlePasswordChange}
-        error={!!passwordError}
-        helperText={passwordError}
-        disabled={isLoading}
-        InputProps={{
-          endAdornment: (
-            <InputAdornment position="end">
-              <IconButton
-                aria-label="パスワードの表示切り替え"
-                onClick={handleTogglePasswordVisibility}
-                edge="end"
-              >
-                {showPassword ? <VisibilityOff /> : <Visibility />}
-              </IconButton>
-            </InputAdornment>
-          ),
+    <Box
+      sx={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 3,
+      }}
+    >
+      <Paper
+        elevation={3}
+        sx={{
+          width: '100%',
+          maxWidth: 420,
+          overflow: 'hidden',
         }}
-      />
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              value="remember"
-              color="primary"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              disabled={isLoading}
-            />
-          }
-          label="ログイン状態を保持する"
-        />
-        <Link component={RouterLink} to="/password-reset" variant="body2">
-          パスワードをお忘れですか？
-        </Link>
-      </Box>
-      
-      <Button
-        type="submit"
-        fullWidth
-        variant="contained"
-        sx={{ mt: 3, mb: 2, py: 1.5 }}
-        disabled={isLoading}
       >
-        {isLoading ? 'ログイン中...' : 'ログイン'}
-      </Button>
-      
-      <Box sx={{ textAlign: 'center', mt: 2 }}>
-        <Typography variant="body2">
-          アカウントをお持ちでない方は{' '}
-          <Link component={RouterLink} to="/register">
-            こちら
-          </Link>{' '}
-          から登録できます。
-        </Typography>
-      </Box>
+        {/* ヘッダー部分 */}
+        <Box
+          sx={{
+            bgcolor: 'primary.main',
+            color: 'white',
+            padding: 2.5,
+            textAlign: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mb: 2,
+            }}
+          >
+            <Business sx={{ fontSize: 32, mr: 1 }} />
+            <Typography variant="h5" component="span" fontWeight={500}>
+              Hinago
+            </Typography>
+          </Box>
+          <Typography variant="h6" fontWeight={400}>
+            ボリュームチェックシステム
+          </Typography>
+        </Box>
+
+        {/* フォーム部分 */}
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{ padding: 4 }}
+        >
+          {/* エラーメッセージ */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
+
+          <Box sx={{ mb: 3 }}>
+            <Typography
+              variant="subtitle2"
+              component="label"
+              htmlFor="email"
+              sx={{
+                display: 'block',
+                mb: 1,
+                fontWeight: 500,
+                color: 'text.primary',
+              }}
+            >
+              メールアドレス
+            </Typography>
+            <TextField
+              id="email"
+              fullWidth
+              placeholder="例: user@example.com"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (validationErrors.email) {
+                  setValidationErrors({
+                    ...validationErrors,
+                    email: '',
+                  });
+                }
+              }}
+              error={!!validationErrors.email}
+              helperText={validationErrors.email}
+              disabled={isLoading}
+              inputProps={{
+                'aria-label': 'メールアドレス',
+              }}
+            />
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <Typography
+              variant="subtitle2"
+              component="label"
+              htmlFor="password"
+              sx={{
+                display: 'block',
+                mb: 1,
+                fontWeight: 500,
+                color: 'text.primary',
+              }}
+            >
+              パスワード
+            </Typography>
+            <TextField
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              fullWidth
+              placeholder="パスワードを入力"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (validationErrors.password) {
+                  setValidationErrors({
+                    ...validationErrors,
+                    password: '',
+                  });
+                }
+              }}
+              error={!!validationErrors.password}
+              helperText={validationErrors.password}
+              disabled={isLoading}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="パスワードの表示切り替え"
+                      onClick={handleTogglePasswordVisibility}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            size="large"
+            disabled={isLoading}
+            sx={{
+              mt: 3,
+              py: 1.5,
+              fontWeight: 500,
+            }}
+          >
+            {isLoading ? <LoadingSpinner size={24} /> : 'ログイン'}
+          </Button>
+        </Box>
+      </Paper>
     </Box>
   );
 };

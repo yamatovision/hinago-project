@@ -32,6 +32,7 @@ Thumbs.db
 # 機密情報を含む可能性のあるファイル
 **/config/secrets.js
 **/credentials.json
+**/deployment/secrets/
 
 # テストとスクリプトフォルダ
 /test/
@@ -39,4 +40,6 @@ Thumbs.db
 /script/
 /scripts/
 /__tests__/
-EOF < /dev/null
+
+# デプロイ関連の機密ファイル
+docs/deployment/secrets/

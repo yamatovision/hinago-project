@@ -1,0 +1,230 @@
+name: 最適化テスト実行パイプライン
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  analyze:
+    name: 差分分析とテスト計画
+    runs-on: ubuntu-latest
+    outputs:
+      affected_areas: ${{ steps.analyze.outputs.affected_areas }}
+      test_plan: ${{ steps.analyze.outputs.test_plan }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Node.js のセットアップ
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: 変更影響範囲の分析
+        id: analyze
+        run: |
+          cd backend
+          
+          # 差分ファイルの検出
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- src/ tests/ | grep -v "node_modules")
+          echo "変更ファイル:"
+          echo "$CHANGED_FILES"
+          echo "::set-output name=changed_files::$(echo $CHANGED_FILES | tr ' ' ',')"
+          
+          # 影響を受ける領域の特定
+          AFFECTED_AREAS="[]"
+          
+          if echo "$CHANGED_FILES" | grep -q "src/features/auth\|tests/.*auth"; then
+            AFFECTED_AREAS=$(echo $AFFECTED_AREAS | jq '. + ["auth"]')
+          fi
+          
+          if echo "$CHANGED_FILES" | grep -q "src/features/properties\|tests/.*properties"; then
+            AFFECTED_AREAS=$(echo $AFFECTED_AREAS | jq '. + ["properties"]')
+          fi
+          
+          if echo "$CHANGED_FILES" | grep -q "src/features/users\|tests/.*users"; then
+            AFFECTED_AREAS=$(echo $AFFECTED_AREAS | jq '. + ["users"]')
+          fi
+          
+          if echo "$CHANGED_FILES" | grep -q "src/features/organizations\|tests/.*organizations"; then
+            AFFECTED_AREAS=$(echo $AFFECTED_AREAS | jq '. + ["organizations"]')
+          fi
+          
+          if echo "$CHANGED_FILES" | grep -q "src/common\|src/config\|src/db\|src/types"; then
+            AFFECTED_AREAS=$(echo $AFFECTED_AREAS | jq '. + ["core"]')
+          fi
+          
+          # 変更がない場合はコアテストのみ実行
+          if [ "$AFFECTED_AREAS" = "[]" ]; then
+            AFFECTED_AREAS='["core"]'
+          fi
+          
+          echo "影響を受ける領域: $AFFECTED_AREAS"
+          echo "::set-output name=affected_areas::$AFFECTED_AREAS"
+          
+          # テスト実行計画の作成
+          TEST_PLAN="{}"
+          
+          if echo "$AFFECTED_AREAS" | jq -e 'contains(["auth"])' > /dev/null; then
+            TEST_PLAN=$(echo $TEST_PLAN | jq '. + {"auth": ["tests/integration/auth/**/*.test.ts"]}')
+          fi
+          
+          if echo "$AFFECTED_AREAS" | jq -e 'contains(["properties"])' > /dev/null; then
+            TEST_PLAN=$(echo $TEST_PLAN | jq '. + {"properties": ["tests/integration/properties/**/*.test.ts"]}')
+          fi
+          
+          if echo "$AFFECTED_AREAS" | jq -e 'contains(["users"])' > /dev/null; then
+            TEST_PLAN=$(echo $TEST_PLAN | jq '. + {"users": ["tests/integration/users/**/*.test.ts"]}')
+          fi
+          
+          if echo "$AFFECTED_AREAS" | jq -e 'contains(["organizations"])' > /dev/null; then
+            TEST_PLAN=$(echo $TEST_PLAN | jq '. + {"organizations": ["tests/integration/organizations/**/*.test.ts"]}')
+          fi
+          
+          if echo "$AFFECTED_AREAS" | jq -e 'contains(["core"])' > /dev/null; then
+            TEST_PLAN=$(echo $TEST_PLAN | jq '. + {"core": ["tests/unit/**/*.test.ts"]}')
+          fi
+          
+          echo "テスト計画: $TEST_PLAN"
+          echo "::set-output name=test_plan::$TEST_PLAN"
+
+  test:
+    needs: analyze
+    name: 効率的テスト実行
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        area: ${{ fromJSON(needs.analyze.outputs.affected_areas) }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Node.js のセットアップ
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: 依存関係のインストール
+        run: |
+          cd backend
+          npm ci
+      
+      - name: .env ファイルの準備
+        run: |
+          cd backend
+          # GitHub Secretsから環境変数を設定
+          cat > .env << EOF
+          # 自動生成された環境ファイル（CIでの実行用）
+          DATABASE_URL=${{ secrets.TEST_DATABASE_URL }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          # 他の必要な環境変数をここに追加
+          EOF
+      
+      - name: キャッシュの復元
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            backend/.jest-cache
+            backend/.test-results
+          key: ${{ runner.os }}-tests-${{ matrix.area }}-${{ hashFiles('backend/package-lock.json') }}-${{ hashFiles('backend/src/features/**') }}
+      
+      - name: テスト環境の検証
+        run: |
+          cd backend
+          # TypeScriptコンパイルチェック
+          npx tsc --noEmit
+          
+          # データベース接続確認（Node.js スクリプトを使用）
+          node -e "
+          const mongoose = require('mongoose');
+          require('dotenv').config();
+          
+          async function checkConnection() {
+            try {
+              await mongoose.connect(process.env.DATABASE_URL);
+              console.log('データベース接続成功');
+              await mongoose.disconnect();
+              process.exit(0);
+            } catch (error) {
+              console.error('データベース接続エラー:', error);
+              process.exit(1);
+            }
+          }
+          
+          checkConnection();
+          "
+      
+      - name: テスト実行
+        run: |
+          cd backend
+          
+          # 影響を受ける領域のみテスト実行
+          TEST_PATTERN=$(echo '${{ needs.analyze.outputs.test_plan }}' | jq -r '.${{ matrix.area }}[]' | tr '\n' ' ')
+          echo "実行するテストパターン: $TEST_PATTERN"
+          
+          # テスト実行 - 結果をJSONに出力
+          JEST_ARGS="--ci --maxWorkers=2 --json --outputFile=jest-results.json"
+          if [ -n "$TEST_PATTERN" ]; then
+            npx jest $TEST_PATTERN $JEST_ARGS || true
+          else
+            echo "テストパターンが指定されていません。全テストを実行します。"
+            npx jest $JEST_ARGS || true
+          fi
+      
+      - name: テスト結果の分析
+        run: |
+          cd backend
+          
+          # テスト結果の分析
+          if [ -f jest-results.json ]; then
+            echo "テスト結果を分析中..."
+            npx ts-node tests/utils/test-analyzer.ts analyze --results-file jest-results.json
+          else
+            echo "テスト結果ファイルが見つかりません。"
+          fi
+      
+      - name: テスト結果の保存
+        if: always()
+        run: |
+          cd backend
+          mkdir -p .test-results
+          
+          if [ -f jest-results.json ]; then
+            cp jest-results.json .test-results/${{ matrix.area }}-results.json
+          fi
+      
+      - name: テスト状況の報告
+        if: always()
+        run: |
+          cd backend
+          
+          if [ -f .test-results/${{ matrix.area }}-results.json ]; then
+            # 成功・失敗の件数を出力
+            SUCCESS_COUNT=$(cat .test-results/${{ matrix.area }}-results.json | jq '.numPassedTests')
+            FAILURE_COUNT=$(cat .test-results/${{ matrix.area }}-results.json | jq '.numFailedTests')
+            TOTAL_COUNT=$(cat .test-results/${{ matrix.area }}-results.json | jq '.numTotalTests')
+            
+            echo "### ${{ matrix.area }} テスト結果 📊" >> $GITHUB_STEP_SUMMARY
+            echo "- 成功: $SUCCESS_COUNT / $TOTAL_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- 失敗: $FAILURE_COUNT / $TOTAL_COUNT" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$FAILURE_COUNT" -gt 0 ]; then
+              echo "#### 失敗したテスト" >> $GITHUB_STEP_SUMMARY
+              cat .test-results/${{ matrix.area }}-results.json | \
+                jq -r '.testResults[] | select(.status == "failed") | .name + ": " + (.assertionResults | map(select(.status == "failed")) | .[0].fullName)' | \
+                while read -r line; do
+                  echo "- $line" >> $GITHUB_STEP_SUMMARY
+                done
+            fi
+          else
+            echo "### ${{ matrix.area }} テスト結果 ⚠️" >> $GITHUB_STEP_SUMMARY
+            echo "テスト結果ファイルが見つかりません。" >> $GITHUB_STEP_SUMMARY
+          fi

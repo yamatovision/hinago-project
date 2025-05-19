@@ -1,136 +1,63 @@
-# 物件関連API仕様書
+# 物件API仕様書
 
 **バージョン**: 1.0.0  
-**最終更新日**: 2025-05-15  
+**最終更新日**: 2025-05-19  
 **ステータス**: ドラフト  
 
-## 1. 概要
+## 概要
 
-このドキュメントでは、HinagoProject（ボリュームチェックシステム）の物件管理に関するAPI仕様を定義します。物件情報の登録、更新、取得、敷地形状の管理、関連文書の管理など、物件に関連する全ての操作が含まれます。
+物件APIは、HinagoProjectの中核となる物件データの管理機能を提供します。物件の基本情報、敷地形状、関連文書などを登録・管理するためのエンドポイントを含みます。
 
-物件は、ボリュームチェックシステムの基本となるリソースであり、建築可能ボリュームの計算やシミュレーションの対象となります。物件データはユーザーの組織内でのみ共有され、組織間ではデータが分離されます。
+- **認証要件**: すべてのエンドポイントで認証が必要
+- **基本URL**: `/api/v1/properties`
 
-## 2. リソース概要
+## エンドポイント一覧
 
-### 2.1 物件リソース (Property)
+### 1. 物件一覧取得 - GET /api/v1/properties
 
-物件リソースは以下の主要属性を持ちます：
+- **認証**: 必須
+- **概要**: 登録済み物件の一覧を取得（フィルタリング、ページネーション、ソート対応）
 
-| 属性 | 型 | 説明 |
-|-----|-----|------|
-| id | ID | 一意識別子 |
-| name | string | 物件名 |
-| address | string | 住所 |
-| area | number | 敷地面積（㎡） |
-| zoneType | ZoneType | 用途地域 |
-| fireZone | FireZone | 防火地域区分 |
-| shadowRegulation | ShadowRegulation | 日影規制 |
-| buildingCoverage | number | 建蔽率（%） |
-| floorAreaRatio | number | 容積率（%） |
-| heightLimit | number | 高さ制限（m） |
-| roadWidth | number | 前面道路幅員（m） |
-| allowedBuildingArea | number | 許容建築面積（㎡） |
-| price | number | 想定取得価格（円） |
-| status | PropertyStatus | 物件ステータス |
-| notes | string | 備考・メモ |
-| organizationId | ID | 所属組織ID |
-| shapeData | ShapeData | 敷地形状データ |
-| createdAt | Date | 作成日時 |
-| updatedAt | Date | 更新日時 |
-
-### 2.2 敷地形状データ (ShapeData)
-
-敷地形状データは以下の属性を持ちます：
-
-| 属性 | 型 | 説明 |
-|-----|-----|------|
-| points | Point[] | 境界点座標の配列 |
-| width | number | 敷地間口（m） |
-| depth | number | 敷地奥行（m） |
-| sourceFile | string | 元ファイル名 |
-
-### 2.3 座標点 (Point)
-
-敷地の境界点座標を表します：
-
-| 属性 | 型 | 説明 |
-|-----|-----|------|
-| x | number | X座標 |
-| y | number | Y座標 |
-
-### 2.4 物件ステータス (PropertyStatus)
-
-物件の現在の状態を表す列挙型：
-
-| 値 | 説明 |
-|---|------|
-| NEW | 新規登録 |
-| NEGOTIATING | 交渉中 |
-| CONTRACTED | 契約済み |
-| COMPLETED | 完了 |
-
-## 3. エンドポイント一覧
-
-| エンドポイント | メソッド | 認証 | 説明 |
-|--------------|--------|------|------|
-| `/api/properties` | GET | 必須 | 物件一覧取得 |
-| `/api/properties` | POST | 必須 | 新規物件登録 |
-| `/api/properties/{id}` | GET | 必須 | 物件詳細取得 |
-| `/api/properties/{id}` | PUT | 必須 | 物件情報更新 |
-| `/api/properties/{id}` | PATCH | 必須 | 物件情報部分更新 |
-| `/api/properties/{id}` | DELETE | 必須 | 物件削除 |
-| `/api/properties/upload-survey` | POST | 必須 | 測量図アップロード |
-| `/api/properties/{id}/shape` | PUT | 必須 | 敷地形状更新 |
-| `/api/properties/{id}/documents` | GET | 必須 | 物件関連文書一覧取得 |
-| `/api/properties/{id}/documents` | POST | 必須 | 物件関連文書追加 |
-| `/api/properties/{id}/history` | GET | 必須 | 物件履歴取得 |
-
-## 4. エンドポイント詳細
-
-### 4.1 物件一覧取得 - GET /api/properties
-
-ユーザーの所属組織の物件一覧を取得します。フィルタリング、ソート、ページネーションに対応しています。
-
-#### クエリパラメータ
+#### リクエストパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
+|-----------|----|----|------|
 | page | number | いいえ | ページ番号（デフォルト: 1） |
-| limit | number | いいえ | 1ページあたりの結果数（デフォルト: 20、最大: 100） |
+| limit | number | いいえ | 1ページあたりの件数（デフォルト: 20、最大: 100） |
 | sort | string | いいえ | ソート条件（例: `updatedAt:desc,name:asc`） |
-| name | string | いいえ | 物件名による部分一致フィルタ |
-| address | string | いいえ | 住所による部分一致フィルタ |
-| status | string | いいえ | ステータスによるフィルタ（カンマ区切りで複数指定可） |
-| area_min | number | いいえ | 最小敷地面積によるフィルタ |
-| area_max | number | いいえ | 最大敷地面積によるフィルタ |
-| zoneType | string | いいえ | 用途地域によるフィルタ（カンマ区切りで複数指定可） |
-| fields | string | いいえ | 取得するフィールドの指定（カンマ区切り） |
-| expand | string | いいえ | 展開して取得する関連データ（現在対応: `shapeData`） |
+| status | string | いいえ | ステータスによるフィルタリング（例: `active`） |
+| zoneType | string | いいえ | 用途地域によるフィルタリング |
+| fields | string | いいえ | 取得するフィールドを指定（例: `id,name,status`） |
+| include | string | いいえ | 含める関連エンティティ（例: `volumeChecks,documents`） |
 
 #### レスポンス
 
 **成功**: 200 OK
+
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "property_123",
-      "name": "福岡タワーマンション計画",
-      "address": "福岡市中央区天神1-1-1",
-      "area": 500.5,
-      "zoneType": "category8",
+      "id": "prop_123456",
+      "name": "福岡市中央区プロジェクト",
+      "address": "福岡県福岡市中央区大名2-1-1",
+      "area": 250.5,
+      "zoneType": "category9",
       "fireZone": "semi-fire",
+      "shadowRegulation": "type1",
       "buildingCoverage": 80,
       "floorAreaRatio": 400,
+      "allowedBuildingArea": 200.4,
       "status": "active",
-      "createdAt": "2025-05-01T10:00:00Z",
-      "updatedAt": "2025-05-15T09:30:00Z"
+      "price": 120000000,
+      "createdAt": "2025-03-15T09:30:00Z",
+      "updatedAt": "2025-03-15T09:30:00Z"
     },
-    // 他の物件...
+    // ... 他の物件
   ],
   "meta": {
-    "total": 42,
+    "total": 52,
     "page": 1,
     "limit": 20,
     "totalPages": 3
@@ -138,7 +65,8 @@
 }
 ```
 
-**エラー**: 401 Unauthorized
+**エラー**: 認証エラー - 401 Unauthorized
+
 ```json
 {
   "success": false,
@@ -149,166 +77,362 @@
 }
 ```
 
-#### 実装ノート
+### 2. 物件登録 - POST /api/v1/properties
 
-- レスポンスは組織ID一致で自動フィルタリングされる（認証ユーザーの組織のみ）
-- `fields`パラメータが指定された場合、指定されたフィールドのみが返却される
-- `expand=shapeData`を指定するとshapeDataが含まれる
-- レート制限: 60回/分/ユーザー
-
----
-
-### 4.2 新規物件登録 - POST /api/properties
-
-新しい物件情報を登録します。
+- **認証**: 必須
+- **概要**: 新規物件情報の登録
 
 #### リクエスト
 
 ```json
 {
-  "name": "博多駅前オフィスビル計画",
-  "address": "福岡市博多区博多駅前2-2-2",
-  "area": 750.25,
+  "name": "福岡市中央区プロジェクト",
+  "address": "福岡県福岡市中央区大名2-1-1",
+  "area": 250.5,
   "zoneType": "category9",
-  "fireZone": "fire",
+  "fireZone": "semi-fire",
+  "shadowRegulation": "type1",
   "buildingCoverage": 80,
-  "floorAreaRatio": 600,
-  "shadowRegulation": "none",
-  "heightLimit": 60,
-  "roadWidth": 12.5,
-  "price": 300000000,
-  "status": "new",
-  "notes": "再開発エリア内の好立地案件"
+  "floorAreaRatio": 400,
+  "price": 120000000,
+  "status": "active",
+  "notes": "駅から徒歩5分の好立地",
+  "shapeData": {
+    "points": [
+      { "x": 0, "y": 0 },
+      { "x": 10, "y": 0 },
+      { "x": 10, "y": 25.05 },
+      { "x": 0, "y": 25.05 }
+    ],
+    "width": 10,
+    "depth": 25.05
+  }
 }
 ```
 
 #### バリデーションルール
 
-- `name`: 必須、1文字以上100文字以下
-- `address`: 必須、1文字以上200文字以下
-- `area`: 必須、正の数値
-- `zoneType`: 必須、ZoneType列挙型の有効な値
-- `fireZone`: 必須、FireZone列挙型の有効な値
-- `buildingCoverage`: 必須、0～100の整数
-- `floorAreaRatio`: 必須、0～1000の整数
-- `shadowRegulation`: オプション、ShadowRegulation列挙型の有効な値
-- `heightLimit`: オプション、正の数値
-- `roadWidth`: オプション、正の数値
-- `price`: オプション、正の整数
-- `status`: オプション、PropertyStatus列挙型の有効な値（デフォルト: NEW）
-- `notes`: オプション、1000文字以下
+- `name`: 必須、1〜100文字
+- `address`: 必須、3〜200文字
+- `area`: 必須、0.1〜100000の数値
+- `zoneType`: 必須、ZoneType列挙型の値
+- `fireZone`: 必須、FireZoneType列挙型の値
+- `buildingCoverage`: 必須、0〜100の数値
+- `floorAreaRatio`: 必須、0〜1000の数値
+- `price`: オプション、0以上の数値
 
 #### レスポンス
 
 **成功**: 201 Created
+
 ```json
 {
   "success": true,
   "data": {
-    "id": "property_124",
-    "name": "博多駅前オフィスビル計画",
-    "address": "福岡市博多区博多駅前2-2-2",
-    "area": 750.25,
+    "id": "prop_123456",
+    "name": "福岡市中央区プロジェクト",
+    "address": "福岡県福岡市中央区大名2-1-1",
+    "area": 250.5,
     "zoneType": "category9",
-    "fireZone": "fire",
+    "fireZone": "semi-fire",
+    "shadowRegulation": "type1",
     "buildingCoverage": 80,
-    "floorAreaRatio": 600,
-    "shadowRegulation": "none",
-    "heightLimit": 60,
-    "roadWidth": 12.5,
-    "price": 300000000,
-    "status": "new",
-    "notes": "再開発エリア内の好立地案件",
-    "organizationId": "org_123456",
-    "createdAt": "2025-05-15T10:15:00Z",
-    "updatedAt": "2025-05-15T10:15:00Z"
+    "floorAreaRatio": 400,
+    "allowedBuildingArea": 200.4,
+    "price": 120000000,
+    "status": "active",
+    "notes": "駅から徒歩5分の好立地",
+    "shapeData": {
+      "points": [
+        { "x": 0, "y": 0 },
+        { "x": 10, "y": 0 },
+        { "x": 10, "y": 25.05 },
+        { "x": 0, "y": 25.05 }
+      ],
+      "width": 10,
+      "depth": 25.05
+    },
+    "createdAt": "2025-03-15T09:30:00Z",
+    "updatedAt": "2025-03-15T09:30:00Z"
   }
 }
 ```
 
-**エラー**: バリデーションエラー - 422 Unprocessable Entity
+**エラー**: バリデーションエラー - 400 Bad Request
+
 ```json
 {
   "success": false,
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "入力データが不正です",
+    "message": "入力データが無効です",
     "details": {
-      "area": "0より大きい数値を入力してください",
-      "zoneType": "有効な用途地域を選択してください"
+      "name": "名前は必須です",
+      "area": "敷地面積は0.1以上である必要があります"
     }
   }
 }
 ```
 
-#### 実装ノート
+### 3. 物件詳細取得 - GET /api/v1/properties/{propertyId}
 
-- 物件はユーザーの所属組織に自動的に関連付けられる
-- `allowedBuildingArea`は`area`と`buildingCoverage`から自動計算
-- 登録された物件は履歴にCREATEアクションとして記録
-- 住所から自動的に緯度経度情報の取得を試みる（成功時はレスポンスに含める）
-- レート制限: 30回/分/ユーザー
+- **認証**: 必須
+- **概要**: 特定物件の詳細情報を取得
 
----
-
-### 4.3 物件詳細取得 - GET /api/properties/{id}
-
-指定されたIDの物件詳細情報を取得します。
-
-#### パスパラメータ
+#### URLパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | 物件ID |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
 
 #### クエリパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| fields | string | いいえ | 取得するフィールドの指定（カンマ区切り） |
-| expand | string | いいえ | 展開して取得する関連データ（カンマ区切り、対応: `shapeData`, `documents`) |
+|-----------|----|----|------|
+| include | string | いいえ | 含める関連エンティティ（例: `volumeChecks,documents`） |
 
 #### レスポンス
 
 **成功**: 200 OK
+
 ```json
 {
   "success": true,
   "data": {
-    "id": "property_123",
-    "name": "福岡タワーマンション計画",
-    "address": "福岡市中央区天神1-1-1",
-    "area": 500.5,
-    "zoneType": "category8",
+    "id": "prop_123456",
+    "name": "福岡市中央区プロジェクト",
+    "address": "福岡県福岡市中央区大名2-1-1",
+    "area": 250.5,
+    "zoneType": "category9",
     "fireZone": "semi-fire",
+    "shadowRegulation": "type1",
     "buildingCoverage": 80,
     "floorAreaRatio": 400,
-    "shadowRegulation": "type2",
+    "allowedBuildingArea": 200.4,
     "heightLimit": 31,
-    "roadWidth": 8,
-    "allowedBuildingArea": 400.4,
-    "price": 250000000,
+    "roadWidth": 6,
+    "price": 120000000,
     "status": "active",
-    "notes": "地下鉄駅徒歩3分の好立地",
-    "organizationId": "org_123456",
+    "notes": "駅から徒歩5分の好立地",
     "shapeData": {
       "points": [
         { "x": 0, "y": 0 },
-        { "x": 20, "y": 0 },
-        { "x": 20, "y": 25 },
-        { "x": 0, "y": 25 }
+        { "x": 10, "y": 0 },
+        { "x": 10, "y": 25.05 },
+        { "x": 0, "y": 25.05 }
       ],
-      "width": 20,
-      "depth": 25,
-      "sourceFile": "測量図_天神1-1-1.pdf"
+      "width": 10,
+      "depth": 25.05,
+      "sourceFile": "https://storage.example.com/surveys/survey123.pdf"
     },
-    "createdAt": "2025-05-01T10:00:00Z",
-    "updatedAt": "2025-05-15T09:30:00Z"
+    "volumeChecks": [
+      {
+        "id": "vol_123456",
+        "assetType": "mansion",
+        "buildingArea": 180.5,
+        "totalFloorArea": 900.2,
+        "buildingHeight": 28.5,
+        "consumptionRate": 90.02,
+        "floors": 9,
+        "createdAt": "2025-03-16T10:30:00Z",
+        "updatedAt": "2025-03-16T10:30:00Z"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc_123456",
+        "name": "測量図原本.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 1243500,
+        "documentType": "survey",
+        "fileUrl": "https://storage.example.com/documents/doc123456.pdf",
+        "createdAt": "2025-03-15T09:35:00Z",
+        "updatedAt": "2025-03-15T09:35:00Z"
+      }
+    ],
+    "createdAt": "2025-03-15T09:30:00Z",
+    "updatedAt": "2025-03-16T10:30:00Z"
   }
 }
 ```
 
-**エラー**: リソースが見つからない - 404 Not Found
+**エラー**: リソースが存在しない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定された物件が見つかりません"
+  }
+}
+```
+
+### 4. 物件更新 - PUT /api/v1/properties/{propertyId}
+
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: 物件情報の完全更新
+
+#### URLパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
+
+#### リクエスト
+
+```json
+{
+  "name": "福岡市中央区大名プロジェクト[更新]",
+  "address": "福岡県福岡市中央区大名2-1-1",
+  "area": 250.5,
+  "zoneType": "category9",
+  "fireZone": "semi-fire",
+  "shadowRegulation": "type1",
+  "buildingCoverage": 80,
+  "floorAreaRatio": 400,
+  "heightLimit": 31,
+  "roadWidth": 6,
+  "price": 150000000,
+  "status": "negotiating",
+  "notes": "駅から徒歩5分の好立地。価格交渉中。"
+}
+```
+
+#### レスポンス
+
+**成功**: 200 OK
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "prop_123456",
+    "name": "福岡市中央区大名プロジェクト[更新]",
+    "address": "福岡県福岡市中央区大名2-1-1",
+    "area": 250.5,
+    "zoneType": "category9",
+    "fireZone": "semi-fire",
+    "shadowRegulation": "type1",
+    "buildingCoverage": 80,
+    "floorAreaRatio": 400,
+    "allowedBuildingArea": 200.4,
+    "heightLimit": 31,
+    "roadWidth": 6,
+    "price": 150000000,
+    "status": "negotiating",
+    "notes": "駅から徒歩5分の好立地。価格交渉中。",
+    "shapeData": {
+      "points": [
+        { "x": 0, "y": 0 },
+        { "x": 10, "y": 0 },
+        { "x": 10, "y": 25.05 },
+        { "x": 0, "y": 25.05 }
+      ],
+      "width": 10,
+      "depth": 25.05,
+      "sourceFile": "https://storage.example.com/surveys/survey123.pdf"
+    },
+    "createdAt": "2025-03-15T09:30:00Z",
+    "updatedAt": "2025-03-18T14:15:00Z"
+  }
+}
+```
+
+**エラー**: バリデーションエラー - 400 Bad Request
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "入力データが無効です",
+    "details": {
+      "area": "敷地面積は0.1以上である必要があります"
+    }
+  }
+}
+```
+
+**エラー**: 権限エラー - 403 Forbidden
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "この操作を実行する権限がありません"
+  }
+}
+```
+
+### 5. 物件部分更新 - PATCH /api/v1/properties/{propertyId}
+
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: 物件情報の部分更新
+
+#### URLパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
+
+#### リクエスト
+
+```json
+{
+  "status": "contracted",
+  "price": 145000000,
+  "notes": "価格交渉完了。契約済み。"
+}
+```
+
+#### レスポンス
+
+**成功**: 200 OK
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "prop_123456",
+    "name": "福岡市中央区大名プロジェクト[更新]",
+    "address": "福岡県福岡市中央区大名2-1-1",
+    "area": 250.5,
+    "zoneType": "category9",
+    "fireZone": "semi-fire",
+    "shadowRegulation": "type1",
+    "buildingCoverage": 80,
+    "floorAreaRatio": 400,
+    "allowedBuildingArea": 200.4,
+    "heightLimit": 31,
+    "roadWidth": 6,
+    "price": 145000000,
+    "status": "contracted",
+    "notes": "価格交渉完了。契約済み。",
+    "createdAt": "2025-03-15T09:30:00Z",
+    "updatedAt": "2025-03-20T11:20:00Z"
+  }
+}
+```
+
+### 6. 物件削除 - DELETE /api/v1/properties/{propertyId}
+
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: 物件の削除
+
+#### URLパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
+
+#### レスポンス
+
+**成功**: 204 No Content
+
+**エラー**: リソースが存在しない - 404 Not Found
+
 ```json
 {
   "success": false,
@@ -320,201 +444,35 @@
 ```
 
 **エラー**: 権限エラー - 403 Forbidden
+
 ```json
 {
   "success": false,
   "error": {
-    "code": "PERMISSION_DENIED",
-    "message": "この物件にアクセスする権限がありません"
+    "code": "FORBIDDEN",
+    "message": "この操作を実行する権限がありません"
   }
 }
 ```
 
-#### 実装ノート
+### 7. 測量図アップロード - POST /api/v1/properties/upload-survey
 
-- 組織IDが一致する物件のみアクセス可能
-- `fields`パラメータが指定された場合、指定されたフィールドのみが返却
-- `expand`パラメータが指定された場合、指定された関連データが含まれる
-- レート制限: 60回/分/ユーザー
-
----
-
-### 4.4 物件情報更新 - PUT /api/properties/{id}
-
-指定されたIDの物件情報を完全に更新します。
-
-#### パスパラメータ
-
-| パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | 物件ID |
+- **認証**: 必須
+- **概要**: 測量図のアップロードと土地形状の自動抽出
 
 #### リクエスト
 
-```json
-{
-  "name": "福岡タワーマンション計画（改定）",
-  "address": "福岡市中央区天神1-1-1",
-  "area": 500.5,
-  "zoneType": "category8",
-  "fireZone": "semi-fire",
-  "buildingCoverage": 80,
-  "floorAreaRatio": 400,
-  "shadowRegulation": "type2",
-  "heightLimit": 31,
-  "roadWidth": 8,
-  "price": 280000000,
-  "status": "negotiating",
-  "notes": "地下鉄駅徒歩3分の好立地。価格交渉中。"
-}
-```
-
-#### バリデーションルール
-
-新規物件登録と同じバリデーションルールが適用されます。
-
-#### レスポンス
-
-**成功**: 200 OK
-```json
-{
-  "success": true,
-  "data": {
-    "id": "property_123",
-    "name": "福岡タワーマンション計画（改定）",
-    "address": "福岡市中央区天神1-1-1",
-    "area": 500.5,
-    "zoneType": "category8",
-    "fireZone": "semi-fire",
-    "buildingCoverage": 80,
-    "floorAreaRatio": 400,
-    "shadowRegulation": "type2",
-    "heightLimit": 31,
-    "roadWidth": 8,
-    "allowedBuildingArea": 400.4,
-    "price": 280000000,
-    "status": "negotiating",
-    "notes": "地下鉄駅徒歩3分の好立地。価格交渉中。",
-    "organizationId": "org_123456",
-    "updatedAt": "2025-05-15T11:20:00Z"
-  }
-}
-```
-
-**エラー**: リソースが見つからない、バリデーションエラー、権限エラーの場合は前述のエラーレスポンスと同様。
-
-#### 実装ノート
-
-- 更新された物件は履歴にUPDATEアクションとして記録
-- 住所が変更された場合は緯度経度情報の再取得を試みる
-- `allowedBuildingArea`は`area`と`buildingCoverage`から自動再計算
-- 組織IDの変更は許可されない
-- レート制限: 30回/分/ユーザー
-
----
-
-### 4.5 物件情報部分更新 - PATCH /api/properties/{id}
-
-指定されたIDの物件情報の一部を更新します。
-
-#### パスパラメータ
+Content-Type: multipart/form-data
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | 物件ID |
-
-#### リクエスト
-
-```json
-{
-  "status": "negotiating",
-  "price": 280000000,
-  "notes": "地下鉄駅徒歩3分の好立地。価格交渉中。"
-}
-```
-
-#### バリデーションルール
-
-指定されたフィールドに対して新規物件登録と同じバリデーションルールが適用されます。
+|-----------|----|----|------|
+| file | File | はい | PDF、PNG、JPGなどの測量図ファイル |
+| propertyId | string | いいえ | 関連付ける物件ID（指定しない場合は未関連） |
 
 #### レスポンス
 
 **成功**: 200 OK
-```json
-{
-  "success": true,
-  "data": {
-    "id": "property_123",
-    "status": "negotiating",
-    "price": 280000000,
-    "notes": "地下鉄駅徒歩3分の好立地。価格交渉中。",
-    "updatedAt": "2025-05-15T11:20:00Z"
-  }
-}
-```
 
-**エラー**: リソースが見つからない、バリデーションエラー、権限エラーの場合は前述のエラーレスポンスと同様。
-
-#### 実装ノート
-
-- 更新された物件は履歴にUPDATEアクションとして記録
-- レスポンスには更新されたフィールドと`id`、`updatedAt`のみが含まれる
-- 組織IDの変更は許可されない
-- レート制限: 30回/分/ユーザー
-
----
-
-### 4.6 物件削除 - DELETE /api/properties/{id}
-
-指定されたIDの物件を削除します。
-
-#### パスパラメータ
-
-| パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | 物件ID |
-
-#### レスポンス
-
-**成功**: 200 OK
-```json
-{
-  "success": true,
-  "data": {
-    "id": "property_123",
-    "deleted": true
-  }
-}
-```
-
-**エラー**: リソースが見つからない、権限エラーの場合は前述のエラーレスポンスと同様。
-
-#### 実装ノート
-
-- 物件の削除は論理削除（ソフトデリート）として実装
-- 削除された物件は履歴にDELETEアクションとして記録
-- 関連するボリュームチェック結果、シナリオ、文書は削除されない
-- 削除された物件は一覧取得では表示されなくなる
-- レート制限: 10回/分/ユーザー
-
----
-
-### 4.7 測量図アップロード - POST /api/properties/upload-survey
-
-測量図をアップロードし、敷地形状を自動抽出します。
-
-#### リクエスト
-
-マルチパートフォームデータとして以下を送信：
-
-| パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| file | File | はい | 測量図ファイル（PDF, DWG, DXF, JPEG, PNG） |
-| propertyId | string | いいえ | 関連付ける物件ID（指定しない場合は形状データのみ返却） |
-
-#### レスポンス
-
-**成功**: 200 OK
 ```json
 {
   "success": true,
@@ -522,66 +480,41 @@
     "shapeData": {
       "points": [
         { "x": 0, "y": 0 },
-        { "x": 20, "y": 0 },
-        { "x": 20, "y": 25 },
-        { "x": 0, "y": 25 }
+        { "x": 10, "y": 0 },
+        { "x": 10, "y": 25.05 },
+        { "x": 0, "y": 25.05 }
       ],
-      "width": 20,
-      "depth": 25,
-      "sourceFile": "測量図_天神1-1-1.pdf"
+      "width": 10,
+      "depth": 25.05,
+      "sourceFile": "https://storage.example.com/surveys/survey123.pdf"
     },
-    "property": {
-      "id": "property_123",
-      "updatedAt": "2025-05-15T11:30:00Z"
-    }
+    "documentId": "doc_123456"
   }
 }
 ```
 
-**エラー**: ファイル形式エラー - 400 Bad Request
+**エラー**: ファイルタイプエラー - 400 Bad Request
+
 ```json
 {
   "success": false,
   "error": {
-    "code": "INVALID_FILE_FORMAT",
-    "message": "サポートされていないファイル形式です。PDF, DWG, DXF, JPEG, PNGのいずれかをアップロードしてください。"
+    "code": "INVALID_FILE_TYPE",
+    "message": "サポートされていないファイル形式です。PDF、PNG、JPG形式の測量図をアップロードしてください。"
   }
 }
 ```
 
-**エラー**: 形状抽出エラー - 422 Unprocessable Entity
-```json
-{
-  "success": false,
-  "error": {
-    "code": "SHAPE_EXTRACTION_FAILED",
-    "message": "敷地形状の自動抽出に失敗しました。別のファイル形式を試すか、形状を手動で設定してください。"
-  }
-}
-```
+### 8. 敷地形状更新 - PUT /api/v1/properties/{propertyId}/shape
 
-#### 実装ノート
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: 物件の敷地形状データの更新
 
-- サポートするファイル形式: PDF, DWG, DXF, JPEG, PNG
-- 最大ファイルサイズ: 10MB
-- DWG/DXF形式の場合は座標データから直接形状を抽出
-- PDF/画像の場合はOCRと画像認識技術を使用して形状を抽出
-- `propertyId`が指定された場合、該当物件の`shapeData`を更新
-- 物件更新時は履歴にUPDATEアクションとして記録
-- 認識精度が不十分な場合は手動調整が必要
-- レート制限: 20回/時間/ユーザー
-
----
-
-### 4.8 敷地形状更新 - PUT /api/properties/{id}/shape
-
-指定されたIDの物件の敷地形状データを手動で更新します。
-
-#### パスパラメータ
+#### URLパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | 物件ID |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
 
 #### リクエスト
 
@@ -589,101 +522,96 @@
 {
   "points": [
     { "x": 0, "y": 0 },
-    { "x": 20, "y": 0 },
-    { "x": 20, "y": 25 },
-    { "x": 0, "y": 25 }
+    { "x": 12, "y": 0 },
+    { "x": 12, "y": 22 },
+    { "x": 0, "y": 22 }
   ],
-  "width": 20,
-  "depth": 25,
-  "sourceFile": "手動入力"
+  "width": 12,
+  "depth": 22
 }
 ```
-
-#### バリデーションルール
-
-- `points`: 必須、少なくとも3つの点を含む配列
-- 各点は有効な`x`と`y`の座標値を持つ必要がある
-- `width`: オプション、正の数値
-- `depth`: オプション、正の数値
-- `sourceFile`: オプション、文字列
 
 #### レスポンス
 
 **成功**: 200 OK
+
 ```json
 {
   "success": true,
   "data": {
-    "id": "property_123",
+    "id": "prop_123456",
     "shapeData": {
       "points": [
         { "x": 0, "y": 0 },
-        { "x": 20, "y": 0 },
-        { "x": 20, "y": 25 },
-        { "x": 0, "y": 25 }
+        { "x": 12, "y": 0 },
+        { "x": 12, "y": 22 },
+        { "x": 0, "y": 22 }
       ],
-      "width": 20,
-      "depth": 25,
-      "sourceFile": "手動入力"
+      "width": 12,
+      "depth": 22,
+      "sourceFile": "https://storage.example.com/surveys/survey123.pdf"
     },
-    "updatedAt": "2025-05-15T11:40:00Z"
+    "area": 264,
+    "allowedBuildingArea": 211.2,
+    "updatedAt": "2025-03-21T09:45:00Z"
   }
 }
 ```
 
-**エラー**: リソースが見つからない、バリデーションエラー、権限エラーの場合は前述のエラーレスポンスと同様。
+### 9. 文書一覧取得 - GET /api/v1/properties/{propertyId}/documents
 
-#### 実装ノート
+- **認証**: 必須
+- **概要**: 物件に関連する文書一覧の取得
 
-- 敷地形状の更新は物件履歴にUPDATEアクションとして記録
-- 点の座標はシステム内の相対座標系で保存
-- 既存の形状データがある場合は完全に置き換え
-- レート制限: 30回/分/ユーザー
-
----
-
-### 4.9 物件関連文書一覧取得 - GET /api/properties/{id}/documents
-
-指定されたIDの物件に関連する文書一覧を取得します。
-
-#### パスパラメータ
+#### URLパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | 物件ID |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
 
 #### クエリパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
+|-----------|----|----|------|
+| documentType | string | いいえ | 文書タイプでフィルタリング |
 | page | number | いいえ | ページ番号（デフォルト: 1） |
-| limit | number | いいえ | 1ページあたりの結果数（デフォルト: 20、最大: 100） |
-| sort | string | いいえ | ソート条件（例: `updatedAt:desc,name:asc`） |
-| documentType | string | いいえ | 文書タイプによるフィルタ（カンマ区切りで複数指定可） |
+| limit | number | いいえ | 1ページあたりの件数（デフォルト: 20） |
 
 #### レスポンス
 
 **成功**: 200 OK
+
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "doc_123",
-      "propertyId": "property_123",
-      "name": "測量図_天神1-1-1.pdf",
+      "id": "doc_123456",
+      "propertyId": "prop_123456",
+      "name": "測量図原本.pdf",
       "fileType": "application/pdf",
-      "fileSize": 1245678,
-      "fileUrl": "/api/documents/doc_123/download",
-      "documentType": "survey-map",
-      "description": "福岡市役所発行の公式測量図",
-      "createdAt": "2025-05-01T10:30:00Z",
-      "updatedAt": "2025-05-01T10:30:00Z"
+      "fileSize": 1243500,
+      "documentType": "survey",
+      "fileUrl": "https://storage.example.com/documents/doc123456.pdf",
+      "description": "測量会社から受領した原本",
+      "createdAt": "2025-03-15T09:35:00Z",
+      "updatedAt": "2025-03-15T09:35:00Z"
     },
-    // 他の文書...
+    {
+      "id": "doc_123457",
+      "propertyId": "prop_123456",
+      "name": "登記簿謄本.pdf",
+      "fileType": "application/pdf",
+      "fileSize": 523400,
+      "documentType": "legal",
+      "fileUrl": "https://storage.example.com/documents/doc123457.pdf",
+      "description": "登記簿謄本（2025年3月取得）",
+      "createdAt": "2025-03-15T10:05:00Z",
+      "updatedAt": "2025-03-15T10:05:00Z"
+    }
   ],
   "meta": {
-    "total": 5,
+    "total": 2,
     "page": 1,
     "limit": 20,
     "totalPages": 1
@@ -691,316 +619,321 @@
 }
 ```
 
-**エラー**: リソースが見つからない、権限エラーの場合は前述のエラーレスポンスと同様。
+### 10. 文書アップロード - POST /api/v1/properties/{propertyId}/documents
 
-#### 実装ノート
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: 物件関連文書のアップロード
 
-- 文書データはストレージサービスに保存され、ダウンロード用のURLが提供される
-- 文書タイプには `survey-map`（測量図）、`register`（登記簿謄本）、`contract`（契約書）、`photo`（写真）、`other`（その他）が含まれる
-- レート制限: 60回/分/ユーザー
-
----
-
-### 4.10 物件関連文書追加 - POST /api/properties/{id}/documents
-
-指定されたIDの物件に関連する文書を追加します。
-
-#### パスパラメータ
+#### URLパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | 物件ID |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
 
 #### リクエスト
 
-マルチパートフォームデータとして以下を送信：
+Content-Type: multipart/form-data
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| file | File | はい | 文書ファイル |
-| documentType | string | はい | 文書タイプ（`survey-map`, `register`, `contract`, `photo`, `other`） |
+|-----------|----|----|------|
+| file | File | はい | アップロードするファイル |
+| documentType | string | はい | 文書タイプ（survey/legal/plan/report/other） |
 | description | string | いいえ | 文書の説明 |
 
 #### レスポンス
 
 **成功**: 201 Created
+
 ```json
 {
   "success": true,
   "data": {
-    "id": "doc_124",
-    "propertyId": "property_123",
-    "name": "登記簿謄本_天神1-1-1.pdf",
+    "id": "doc_123458",
+    "propertyId": "prop_123456",
+    "name": "建築計画書.pdf",
     "fileType": "application/pdf",
-    "fileSize": 987654,
-    "fileUrl": "/api/documents/doc_124/download",
-    "documentType": "register",
-    "description": "2025年5月取得の登記簿謄本",
-    "createdAt": "2025-05-15T11:50:00Z",
-    "updatedAt": "2025-05-15T11:50:00Z"
+    "fileSize": 2540000,
+    "documentType": "plan",
+    "fileUrl": "https://storage.example.com/documents/doc123458.pdf",
+    "description": "初期建築計画案",
+    "createdAt": "2025-03-22T14:30:00Z",
+    "updatedAt": "2025-03-22T14:30:00Z"
   }
 }
 ```
 
-**エラー**: リソースが見つからない、バリデーションエラー、権限エラーの場合は前述のエラーレスポンスと同様。
+### 11. 文書詳細取得 - GET /api/v1/properties/{propertyId}/documents/{documentId}
 
-**エラー**: ファイルサイズエラー - 413 Payload Too Large
-```json
-{
-  "success": false,
-  "error": {
-    "code": "FILE_TOO_LARGE",
-    "message": "ファイルサイズが上限（20MB）を超えています"
-  }
-}
-```
+- **認証**: 必須
+- **概要**: 特定文書の詳細情報取得
 
-#### 実装ノート
-
-- 最大ファイルサイズ: 20MB
-- サポートするファイル形式: PDF, DOCX, XLSX, JPEG, PNG, TIFF, DWG, DXF, ZIP
-- 文書の追加は物件履歴にCREATEアクションとして記録
-- 文書名はアップロードされたファイル名から自動設定
-- 文書タイプによってサムネイル生成やプレビュー機能が適用
-- レート制限: 30回/分/ユーザー
-
----
-
-### 4.11 物件履歴取得 - GET /api/properties/{id}/history
-
-指定されたIDの物件の変更履歴を取得します。
-
-#### パスパラメータ
+#### URLパラメータ
 
 | パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| id | string | はい | 物件ID |
-
-#### クエリパラメータ
-
-| パラメータ | 型 | 必須 | 説明 |
-|----------|-----|------|------|
-| page | number | いいえ | ページ番号（デフォルト: 1） |
-| limit | number | いいえ | 1ページあたりの結果数（デフォルト: 20、最大: 100） |
-| action | string | いいえ | アクションタイプによるフィルタ（`create`, `update`, `delete`） |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
+| documentId | string | はい | 文書ID |
 
 #### レスポンス
 
 **成功**: 200 OK
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "doc_123458",
+    "propertyId": "prop_123456",
+    "name": "建築計画書.pdf",
+    "fileType": "application/pdf",
+    "fileSize": 2540000,
+    "documentType": "plan",
+    "fileUrl": "https://storage.example.com/documents/doc123458.pdf",
+    "description": "初期建築計画案",
+    "createdAt": "2025-03-22T14:30:00Z",
+    "updatedAt": "2025-03-22T14:30:00Z"
+  }
+}
+```
+
+**エラー**: リソースが存在しない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定された文書が見つかりません"
+  }
+}
+```
+
+### 12. 文書削除 - DELETE /api/v1/properties/{propertyId}/documents/{documentId}
+
+- **認証**: 必須（所有者または管理者のみ）
+- **概要**: 特定文書の削除
+
+#### URLパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
+| documentId | string | はい | 文書ID |
+
+#### レスポンス
+
+**成功**: 204 No Content
+
+**エラー**: リソースが存在しない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "指定された文書が見つかりません"
+  }
+}
+```
+
+### 13. 更新履歴取得 - GET /api/v1/properties/{propertyId}/history
+
+- **認証**: 必須
+- **概要**: 物件の更新履歴取得
+
+#### URLパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| propertyId | string | はい | 物件ID |
+
+#### クエリパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| limit | number | いいえ | 取得する履歴の最大数（デフォルト: 20） |
+
+#### レスポンス
+
+**成功**: 200 OK
+
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "hist_123",
-      "propertyId": "property_123",
-      "userId": "user_123",
-      "action": "update",
-      "description": "物件状態を「新規」から「交渉中」に変更",
-      "details": {
-        "previous": { "status": "new" },
-        "current": { "status": "negotiating" }
-      },
-      "createdAt": "2025-05-15T11:20:00Z"
+      "id": "hist_123456",
+      "propertyId": "prop_123456",
+      "userId": "user_1",
+      "action": "property_update",
+      "details": "ステータスを「negotiating」から「contracted」に変更、価格を更新",
+      "createdAt": "2025-03-20T11:20:00Z"
     },
     {
-      "id": "hist_122",
-      "propertyId": "property_123",
-      "userId": "user_123",
-      "action": "update",
-      "description": "敷地形状を更新",
-      "details": {
-        "shapeUpdated": true
-      },
-      "createdAt": "2025-05-15T11:10:00Z"
+      "id": "hist_123455",
+      "propertyId": "prop_123456",
+      "userId": "user_1",
+      "action": "property_update",
+      "details": "ステータスを「active」から「negotiating」に変更、価格と備考を更新",
+      "createdAt": "2025-03-18T14:15:00Z"
     },
-    // 他の履歴...
+    {
+      "id": "hist_123454",
+      "propertyId": "prop_123456",
+      "userId": "user_1",
+      "action": "volume_check_created",
+      "details": "新規ボリュームチェック結果を作成（マンションタイプ）",
+      "createdAt": "2025-03-16T10:30:00Z"
+    },
+    {
+      "id": "hist_123453",
+      "propertyId": "prop_123456",
+      "userId": "user_1",
+      "action": "document_uploaded",
+      "details": "文書「測量図原本.pdf」をアップロード",
+      "createdAt": "2025-03-15T09:35:00Z"
+    },
+    {
+      "id": "hist_123452",
+      "propertyId": "prop_123456",
+      "userId": "user_1",
+      "action": "property_created",
+      "details": "新規物件を作成",
+      "createdAt": "2025-03-15T09:30:00Z"
+    }
   ],
   "meta": {
-    "total": 10,
-    "page": 1,
-    "limit": 20,
-    "totalPages": 1
+    "total": 5
   }
 }
 ```
 
-**エラー**: リソースが見つからない、権限エラーの場合は前述のエラーレスポンスと同様。
+### 14. ジオコーディング - GET /api/v1/geocode
 
-#### 実装ノート
+- **認証**: 必須
+- **概要**: 住所から緯度経度情報を取得
 
-- 履歴は時系列逆順（最新の変更が先頭）で返却
-- 機微情報（価格変更等）は適切に抽象化して記録
-- ユーザー情報は操作を行ったユーザーのIDを記録
-- レート制限: 60回/分/ユーザー
+#### クエリパラメータ
 
-## 5. データモデルとの整合性
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| address | string | はい | ジオコーディングする住所 |
 
-このAPIは`shared/index.ts`で定義されている以下のデータモデルと整合しています：
+#### レスポンス
 
-- `Property`: 物件基本情報
-- `PropertyBase`: 物件基本情報の基底インターフェース
-- `PropertyDetail`: 物件詳細情報
-- `PropertyCreateData`: 物件登録データ
-- `PropertyUpdateData`: 物件更新データ
-- `PropertyStatus`: 物件ステータス列挙型
-- `ZoneType`: 用途地域列挙型
-- `FireZone`: 防火地域区分列挙型
-- `ShadowRegulation`: 日影規制列挙型
-- `ShapeData`: 敷地形状データ
-- `Point`: 座標点
-- `PropertyFilter`: 物件フィルター
+**成功**: 200 OK
 
-## 6. サンプルコード
-
-### 6.1 物件一覧取得
-
-```typescript
-// フロントエンドでの物件一覧取得例
-import axios from 'axios';
-import { API_PATHS } from '@shared/index';
-
-// 物件一覧取得
-const fetchProperties = async () => {
-  try {
-    const response = await axios.get(API_PATHS.PROPERTIES.BASE, {
-      params: {
-        status: 'new,negotiating',
-        sort: 'updatedAt:desc',
-        page: 1,
-        limit: 20
-      }
-    });
-    
-    if (response.data.success) {
-      return response.data.data;
-    }
-  } catch (error) {
-    console.error('物件一覧の取得に失敗しました', error);
-    throw error;
+```json
+{
+  "success": true,
+  "data": {
+    "lat": 33.5898,
+    "lng": 130.3986,
+    "formatted_address": "福岡県福岡市中央区大名2-1-1"
   }
-};
+}
 ```
 
-### 6.2 新規物件登録
-
-```typescript
-// フロントエンドでの新規物件登録例
-import axios from 'axios';
-import { API_PATHS, PropertyCreateData } from '@shared/index';
-
-// 物件登録
-const createProperty = async (propertyData: PropertyCreateData) => {
-  try {
-    const response = await axios.post(API_PATHS.PROPERTIES.BASE, propertyData);
-    
-    if (response.data.success) {
-      return response.data.data;
-    }
-  } catch (error) {
-    console.error('物件登録に失敗しました', error);
-    throw error;
-  }
-};
-```
-
-### 6.3 測量図アップロード
-
-```typescript
-// フロントエンドでの測量図アップロード例
-import axios from 'axios';
-import { API_PATHS } from '@shared/index';
-
-// 測量図アップロード
-const uploadSurveyMap = async (file: File, propertyId: string) => {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('propertyId', propertyId);
-    
-    const response = await axios.post(
-      API_PATHS.PROPERTIES.UPLOAD_SURVEY,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }
-    );
-    
-    if (response.data.success) {
-      return response.data.data;
-    }
-  } catch (error) {
-    console.error('測量図アップロードに失敗しました', error);
-    throw error;
-  }
-};
-```
-
-## 7. セキュリティ考慮事項
-
-### 7.1 アクセス制御
-
-- 全てのエンドポイントはユーザー認証が必要
-- 物件は組織IDに基づいてアクセス制御される
-- 組織外のユーザーは物件データにアクセス不可
-
-### 7.2 入力バリデーション
-
-- 全てのユーザー入力は厳格にバリデーション
-- SQLインジェクション、XSS対策としての入力サニタイズ
-- ファイルアップロードは拡張子とMIMEタイプの両方で検証
-
-### 7.3 レート制限
-
-- すべてのエンドポイントには適切なレート制限を実装
-- DDoS攻撃やブルートフォース攻撃を防止
-
-### 7.4 データ保護
-
-- 重要な物件情報はデータベースレベルで暗号化
-- ファイルストレージはアクセス制御された安全な環境で保管
-- 物理的な位置情報（緯度・経度）のアクセスは制限
-
-## 8. エラーハンドリング
-
-エラーレスポンスは一貫した形式で返却されます：
+**エラー**: 住所が見つからない - 404 Not Found
 
 ```json
 {
   "success": false,
   "error": {
-    "code": "ERROR_CODE",
-    "message": "エラーメッセージ",
-    "details": {
-      // オプションの詳細情報
-    }
+    "code": "ADDRESS_NOT_FOUND",
+    "message": "指定された住所の位置情報が見つかりません"
   }
 }
 ```
 
-一般的なエラーコード：
+## 実装ノート
 
-| エラーコード | 説明 |
-|------------|------|
-| `VALIDATION_ERROR` | 入力データが検証基準を満たしていない |
-| `RESOURCE_NOT_FOUND` | 要求されたリソースが存在しない |
-| `PERMISSION_DENIED` | リソースにアクセスする権限がない |
-| `INVALID_FILE_FORMAT` | サポートされていないファイル形式 |
-| `FILE_TOO_LARGE` | ファイルサイズが上限を超えている |
-| `SHAPE_EXTRACTION_FAILED` | 形状データの自動抽出に失敗 |
+### 敷地形状データの扱い
 
-## 9. キャッシング戦略
+- 敷地形状データは常に基準点（0,0）からの相対座標として保存してください
+- `points`配列の最初と最後は同じ座標を指定してポリゴンを閉じてください
+- 座標はメートル単位で指定し、小数点以下2桁までの精度を推奨します
 
-特定のエンドポイントにはキャッシング戦略が適用されます：
+### 許容建築面積の自動計算
 
-| エンドポイント | キャッシュTTL | 条件 |
-|--------------|-------------|------|
-| GET /api/properties/{id} | 5分 | If-Modified-Since, ETagがサポート |
-| GET /api/properties/{id}/documents | 5分 | If-Modified-Since, ETagがサポート |
-| GET /api/properties/{id}/history | 15分 | If-Modified-Since, ETagがサポート |
+敷地情報が更新された場合、以下の計算で許容建築面積を自動更新します：
 
-キャッシュの無効化は以下の条件で行われます：
-- 関連リソースが更新された場合
-- 関連するサブリソースが追加・更新・削除された場合
+```
+allowedBuildingArea = area * (buildingCoverage / 100)
+```
+
+### セキュリティ考慮事項
+
+1. **ファイルアップロード**
+   - アップロードされたファイルは安全なストレージに保存
+   - ファイルタイプとサイズのバリデーションを厳格に実施
+   - ファイルダウンロードURLはアクセス権限を持つユーザーのみ取得可能
+
+2. **権限管理**
+   - 物件データの更新・削除操作は所有者または管理者のみ実行可能
+   - 一般ユーザーは自分が作成した物件のみ更新可能（将来的な拡張）
+
+## 型定義参照
+
+```typescript
+// 物件基本情報
+export interface PropertyBase {
+  name: string; // 物件名
+  address: string; // 住所
+  area: number; // 敷地面積 (m²)
+  zoneType: ZoneType; // 用途地域
+  fireZone: FireZoneType; // 防火地域区分
+  shadowRegulation?: ShadowRegulationType; // 日影規制
+  buildingCoverage: number; // 建蔽率 (%)
+  floorAreaRatio: number; // 容積率 (%)
+  allowedBuildingArea?: number; // 許容建築面積 (m²)
+  heightLimit?: number; // 高さ制限 (m)
+  roadWidth?: number; // 前面道路幅員 (m)
+  price?: number; // 想定取得価格 (円)
+  status?: PropertyStatus; // 物件ステータス
+  notes?: string; // 備考・メモ
+  shapeData?: PropertyShape; // 敷地形状データ
+}
+
+// 物件詳細の型（DBモデルに対応）
+export interface Property extends PropertyBase, Timestamps {
+  id: ID;
+  userId?: ID; // 作成したユーザーID
+}
+
+// 物件詳細の型（関連エンティティを含む）
+export interface PropertyDetail extends Property {
+  volumeChecks?: VolumeCheck[]; // 関連するボリュームチェック結果
+  documents?: Document[]; // 関連する文書
+}
+
+// 敷地形状の型
+export interface PropertyShape {
+  points: BoundaryPoint[]; // 境界点の配列
+  width?: number; // 敷地間口
+  depth?: number; // 敷地奥行
+  sourceFile?: string; // 測量図ファイルのURL
+}
+
+// 文書の型（DBモデルに対応）
+export interface Document extends Timestamps {
+  id: ID;
+  propertyId: ID; // 関連物件ID
+  name: string; // ファイル名
+  fileType: string; // ファイル種類 (MIME Type)
+  fileSize: number; // ファイルサイズ (bytes)
+  fileUrl: string; // ファイルURL
+  documentType: DocumentType; // 文書タイプ
+  description?: string; // 説明
+  userId?: ID; // アップロードしたユーザーID
+}
+
+// 更新履歴エントリの型
+export interface HistoryEntry extends Timestamps {
+  id: ID;
+  propertyId: ID; // 関連物件ID
+  userId: ID; // 変更したユーザーID
+  action: string; // 実行したアクション
+  details: string; // 変更の詳細
+}
+```

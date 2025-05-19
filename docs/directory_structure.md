@@ -1,302 +1,248 @@
-# 機能中心ディレクトリ構造設計
+# HinagoProject ディレクトリ構造設計
 
-このドキュメントはHinagoProject（ボリュームチェックシステム）の機能中心ディレクトリ構造を定義します。
-機能中心のディレクトリ構造は、技術的な層（controllers, services）ではなく、ビジネス機能（auth, users, properties）でディレクトリを分割することで、非技術者にも理解しやすく、開発者にとっても関連コードの発見が容易になるように設計されています。
+**バージョン**: 1.0.0  
+**最終更新日**: 2025-05-19  
+**ステータス**: ドラフト  
 
-## 目次
+## 1. 設計方針
 
-1. [全体構造](#全体構造)
-2. [バックエンド構造](#バックエンド構造)
-3. [フロントエンド構造](#フロントエンド構造)
-4. [共有リソース構造](#共有リソース構造)
-5. [パッケージ管理](#パッケージ管理)
+HinagoProjectでは、以下の原則に基づいてディレクトリ構造を設計しています：
 
-## 全体構造
+1. **機能中心の構造**: 技術的な層ではなく、ビジネス機能を中心としたディレクトリ構造
+2. **単一責任の原則**: 各コンポーネントは明確に定義された単一の責任を持つ
+3. **共通コードの抽象化**: 複数の機能で使用されるコードは共通ディレクトリに抽象化
+4. **型定義の一元管理**: すべての型定義は `shared/index.ts` で管理
+5. **APIパスの一元管理**: すべてのAPIパスは `shared/index.ts` で管理
+6. **共有コードは上流へ**: 複数の機能でコードの共有が必要になった場合は、上位の共通層へ移動
 
-プロジェクトのルートディレクトリには以下のディレクトリとファイルが含まれます。
+この構造は、非技術者にも理解しやすく、ビジネス要件の進化に合わせて拡張しやすいように設計されています。
+
+## 2. システム全体構成
 
 ```
 /HinagoProject/
 ├── docs/                   # プロジェクトドキュメント
-│   ├── data_models.md      # データモデル設計書
-│   ├── directory_structure.md # ディレクトリ構造設計書
 │   ├── requirements.md     # 要件定義書
-│   └── SCOPE_PROGRESS.md   # スコープ進捗管理
+│   ├── data_models.md      # データモデル定義
+│   ├── directory_structure.md # 本ドキュメント
+│   ├── SCOPE_PROGRESS.md   # スコープ進捗状況
+│   └── deployment/         # デプロイメント関連ドキュメント
 │
 ├── mockups/                # UIモックアップ
 │   ├── dashboard.html      # ダッシュボード画面
-│   ├── login.html          # ログイン画面
-│   ├── profitability-analysis.html # 収益性試算画面
-│   ├── property-detail.html # 物件詳細画面
 │   ├── property-register.html # 物件登録画面
-│   └── volume-check.html   # ボリュームチェック画面
+│   ├── property-detail.html # 物件詳細画面
+│   ├── volume-check.html   # ボリュームチェック画面
+│   └── profitability-analysis.html # 収益性試算画面
 │
-├── shared/                 # フロントエンドとバックエンドで共有
-│   ├── index.ts            # 共有型定義とAPIパス
-│   └── constants.ts        # 共有定数
+├── shared/                 # 共有型定義とAPIパス
+│   └── index.ts            # 型定義・APIパスの単一の真実源
 │
 ├── frontend/               # フロントエンドアプリケーション
 │
 ├── backend/                # バックエンドアプリケーション
 │
-├── scripts/                # ビルドスクリプトや開発用ツール
-│
-├── .env.example            # 環境変数サンプル
-├── .gitignore              # Gitの除外設定
-├── package.json            # ルートパッケージ設定
-├── README.md               # プロジェクト概要
-├── tsconfig.json           # TypeScript設定
-└── CLAUDE.md               # Claude指示ファイル
+└── scripts/                # ビルドスクリプトや開発用ツール
 ```
 
-## バックエンド構造
+## 3. フロントエンド構造
 
-バックエンドは機能単位で整理され、各機能ディレクトリには関連するすべてのロジックが含まれます。
+```
+/frontend/
+├── public/                # 静的ファイル
+│   ├── index.html         # メインHTMLファイル
+│   ├── favicon.ico        # アプリケーションアイコン
+│   └── assets/            # 画像などの静的アセット
+│
+└── src/
+    ├── common/            # 共通コンポーネント・ユーティリティ
+    │   ├── components/    # 汎用UIコンポーネント
+    │   │   ├── Button/    # ボタンコンポーネント
+    │   │   ├── Card/      # カードコンポーネント
+    │   │   ├── Form/      # フォームコンポーネント
+    │   │   ├── Layout/    # レイアウトコンポーネント
+    │   │   ├── Loading/   # ローディングインジケータ
+    │   │   └── ...        # その他の共通コンポーネント
+    │   │
+    │   ├── hooks/         # 共通Reactフック
+    │   │   ├── useForm.ts # フォーム管理フック
+    │   │   ├── useApi.ts  # API通信フック
+    │   │   ├── useAuth.ts # 認証状態管理フック
+    │   │   └── ...        # その他の共通フック
+    │   │
+    │   └── utils/         # ユーティリティ関数
+    │       ├── api.ts     # API通信ユーティリティ
+    │       ├── validation.ts # バリデーションユーティリティ
+    │       ├── token.ts   # トークン管理ユーティリティ
+    │       └── ...        # その他のユーティリティ
+    │
+    ├── features/          # 機能ごとにグループ化
+    │   ├── auth/          # 認証機能
+    │   │   ├── components/ # 認証関連コンポーネント
+    │   │   │   ├── LoginForm/ # ログインフォーム
+    │   │   │   ├── RegisterForm/ # 登録フォーム
+    │   │   │   └── ProtectedRoute/ # 保護されたルート
+    │   │   ├── hooks/     # 認証関連フック
+    │   │   ├── pages/     # 認証関連ページ
+    │   │   │   ├── LoginPage.tsx # ログインページ
+    │   │   │   └── RegisterPage.tsx # 登録ページ
+    │   │   ├── contexts/  # 認証コンテキスト
+    │   │   │   └── AuthContext.tsx # 認証状態管理コンテキスト
+    │   │   ├── services/  # 認証関連サービス
+    │   │   │   └── tokenService.ts # トークン管理サービス
+    │   │   └── api.ts     # 認証API連携
+    │   │
+    │   ├── dashboard/     # ダッシュボード機能
+    │   │   ├── components/ # ダッシュボード固有のコンポーネント
+    │   │   ├── hooks/     # ダッシュボード固有のフック
+    │   │   ├── pages/     # ダッシュボード画面
+    │   │   └── api.ts     # ダッシュボードAPI連携
+    │   │
+    │   ├── properties/    # 物件管理機能
+    │   │   ├── components/ # 物件管理固有のコンポーネント
+    │   │   │   ├── PropertyForm/ # 物件フォームコンポーネント
+    │   │   │   ├── PropertyList/ # 物件一覧コンポーネント
+    │   │   │   └── ...     # その他の物件関連コンポーネント
+    │   │   ├── hooks/      # 物件管理固有のフック
+    │   │   ├── pages/      # 物件管理画面
+    │   │   │   ├── PropertyListPage.tsx # 物件一覧ページ
+    │   │   │   ├── PropertyRegisterPage.tsx # 物件登録ページ
+    │   │   │   └── PropertyDetailPage.tsx # 物件詳細ページ
+    │   │   └── api.ts      # 物件管理API連携
+    │   │
+    │   ├── volume-check/  # ボリュームチェック機能
+    │   │   ├── components/ # ボリュームチェック固有のコンポーネント
+    │   │   │   ├── AssetTypeSelector/ # アセットタイプ選択コンポーネント
+    │   │   │   ├── Model3DViewer/    # 3Dモデルビューアコンポーネント
+    │   │   │   ├── SurveyMapUploader/ # 測量図アップローダーコンポーネント
+    │   │   │   └── ...     # その他のボリュームチェック関連コンポーネント
+    │   │   ├── hooks/      # ボリュームチェック固有のフック
+    │   │   ├── pages/      # ボリュームチェック画面
+    │   │   └── api.ts      # ボリュームチェックAPI連携
+    │   │
+    │   └── profitability/ # 収益性試算機能
+    │       ├── components/ # 収益性試算固有のコンポーネント
+    │       ├── hooks/      # 収益性試算固有のフック
+    │       ├── pages/      # 収益性試算画面
+    │       └── api.ts      # 収益性試算API連携
+    │
+    ├── app/               # アプリケーションのコア
+    │   ├── routes.tsx     # ルーティング設定
+    │   ├── providers.tsx  # コンテキストプロバイダー
+    │   └── store.ts       # グローバル状態管理
+    │
+    └── index.tsx          # エントリーポイント
+```
+
+## 4. バックエンド構造
 
 ```
 /backend/
 ├── src/
 │   ├── common/            # 全機能で共有する共通コード
 │   │   ├── middlewares/   # 共通ミドルウェア
-│   │   │   ├── auth.middleware.ts  # 認証ミドルウェア
-│   │   │   ├── error.middleware.ts # エラーハンドリングミドルウェア
+│   │   │   ├── auth.middleware.ts     # 認証ミドルウェア
+│   │   │   ├── error.middleware.ts    # エラーハンドリングミドルウェア
 │   │   │   └── validation.middleware.ts # バリデーションミドルウェア
 │   │   │
-│   │   ├── utils/         # ユーティリティ関数
-│   │   │   ├── logger.ts  # ロギングユーティリティ
-│   │   │   └── response.ts # レスポンス整形ユーティリティ
+│   │   ├── utils/         # ユーティリティ
+│   │   │   ├── logger.ts   # ロギングユーティリティ
+│   │   │   └── response.ts # レスポンスフォーマットユーティリティ
 │   │   │
 │   │   └── validators/    # 共通バリデーター
-│   │       └── common.validator.ts
+│   │       └── common.validator.ts # 共通バリデーションルール
 │   │
 │   ├── features/          # 機能ごとにグループ化
 │   │   ├── auth/          # 認証機能
-│   │   │   ├── auth.controller.ts  # 認証コントローラー
-│   │   │   ├── auth.service.ts     # 認証サービス
-│   │   │   ├── auth.routes.ts      # 認証ルート
-│   │   │   └── auth.validator.ts   # 認証バリデーター
-│   │   │
-│   │   ├── users/         # ユーザー管理機能
-│   │   │   ├── users.controller.ts # ユーザーコントローラー
-│   │   │   ├── users.service.ts    # ユーザーサービス
-│   │   │   ├── users.routes.ts     # ユーザールート
-│   │   │   └── users.validator.ts  # ユーザーバリデーター
+│   │   │   ├── auth.controller.ts   # 認証コントローラー
+│   │   │   ├── auth.service.ts      # 認証サービス
+│   │   │   ├── auth.routes.ts       # 認証ルート定義
+│   │   │   ├── auth.middleware.ts   # 認証固有ミドルウェア
+│   │   │   ├── auth.utils.ts        # 認証ユーティリティ
+│   │   │   ├── auth.validator.ts    # 認証バリデーター
+│   │   │   └── auth.config.ts       # JWT設定などの認証設定
 │   │   │
 │   │   ├── properties/    # 物件管理機能
-│   │   │   ├── properties.controller.ts # 物件コントローラー
-│   │   │   ├── properties.service.ts    # 物件サービス
-│   │   │   ├── properties.routes.ts     # 物件ルート
-│   │   │   ├── properties.validator.ts  # 物件バリデーター
-│   │   │   └── documents/            # 物件関連文書サブ機能
-│   │   │       ├── documents.controller.ts
-│   │   │       └── documents.service.ts
+│   │   │   ├── properties.controller.ts # コントローラー
+│   │   │   ├── properties.service.ts    # サービス
+│   │   │   ├── properties.routes.ts     # ルート定義
+│   │   │   ├── properties.repository.ts # リポジトリ
+│   │   │   └── properties.validator.ts  # バリデーター
 │   │   │
 │   │   ├── volume-check/  # ボリュームチェック機能
-│   │   │   ├── volume-check.controller.ts
-│   │   │   ├── volume-check.service.ts
-│   │   │   ├── volume-check.routes.ts
-│   │   │   └── calculator/           # 計算エンジンサブ機能
-│   │   │       ├── volume.calculator.ts
-│   │   │       └── regulation.calculator.ts
+│   │   │   ├── volume-check.controller.ts # コントローラー
+│   │   │   ├── volume-check.service.ts    # サービス
+│   │   │   ├── volume-check.routes.ts     # ルート定義
+│   │   │   ├── volume-check.repository.ts # リポジトリ
+│   │   │   └── volume-check.validator.ts  # バリデーター
 │   │   │
 │   │   └── profitability/ # 収益性試算機能
-│   │       ├── profitability.controller.ts
-│   │       ├── profitability.service.ts
-│   │       ├── profitability.routes.ts
-│   │       ├── scenarios.controller.ts
-│   │       └── scenarios.service.ts
+│   │       ├── profitability.controller.ts # コントローラー
+│   │       ├── profitability.service.ts    # サービス
+│   │       ├── profitability.routes.ts     # ルート定義
+│   │       ├── profitability.repository.ts # リポジトリ
+│   │       └── profitability.validator.ts  # バリデーター
 │   │
 │   ├── config/           # アプリケーション設定
-│   │   ├── db.config.ts  # データベース設定
-│   │   ├── app.config.ts # アプリケーション設定
-│   │   └── auth.config.ts # 認証設定
+│   │   ├── app.config.ts  # アプリケーション設定
+│   │   ├── db.config.ts   # データベース設定
+│   │   ├── auth.config.ts # 認証・JWT設定
+│   │   └── index.ts       # 設定エクスポート
 │   │
 │   ├── db/               # データベース関連
-│   │   ├── models/       # データベースモデル
-│   │   ├── migrations/   # マイグレーションスクリプト
-│   │   ├── seeds/        # シードデータ
-│   │   └── connection.ts # データベース接続
+│   │   ├── connection.ts  # データベース接続
+│   │   └── models/        # データモデル
+│   │       ├── User.ts        # ユーザーモデル
+│   │       ├── RefreshToken.ts # リフレッシュトークンモデル
+│   │       ├── Property.ts     # 物件モデル
+│   │       ├── VolumeCheck.ts  # ボリュームチェックモデル
+│   │       ├── Document.ts     # 文書モデル
+│   │       └── Scenario.ts     # シナリオモデル
 │   │
 │   ├── types/            # 型定義（shared/index.tsからコピー）
-│   │   └── index.ts      # バックエンド用型定義
+│   │   └── index.ts       # 型定義
 │   │
 │   ├── routes.ts         # ルートインデックス
+│   │
 │   └── app.ts            # アプリケーションエントリーポイント
 │
-├── tests/                # テスト
-│   ├── unit/             # ユニットテスト
-│   └── integration/      # 統合テスト
-│
-├── .env                  # 環境変数
-├── nodemon.json          # Nodemon設定
-├── package.json          # パッケージ設定
-└── tsconfig.json         # TypeScript設定
+└── tests/                # テスト
+    ├── integration/      # 統合テスト
+    │   ├── auth/         # 認証機能のテスト
+    │   ├── properties/   # 物件管理機能のテスト
+    │   ├── volume-check/ # ボリュームチェック機能のテスト
+    │   └── profitability/ # 収益性試算機能のテスト
+    │
+    └── unit/             # ユニットテスト
+        ├── auth/         # 認証機能のテスト
+        ├── properties/   # 物件管理機能のテスト
+        ├── volume-check/ # ボリュームチェック機能のテスト
+        └── profitability/ # 収益性試算機能のテスト
 ```
 
-## フロントエンド構造
+## 5. ディレクトリ構造の原則と利点
 
-フロントエンドも同様に機能単位で整理され、各機能ディレクトリには関連するUIコンポーネント、ロジック、スタイルが含まれます。
+### 5.1 機能中心アプローチの利点
 
-```
-/frontend/
-├── public/              # 静的ファイル
-│   ├── index.html       # HTMLエントリーポイント
-│   ├── favicon.ico      # ファビコン
-│   └── assets/          # 公開アセット
-│       ├── images/      # 画像
-│       └── fonts/       # フォント
-│
-├── src/
-│   ├── common/            # 共通コンポーネント・ユーティリティ
-│   │   ├── components/    # 汎用UIコンポーネント
-│   │   │   ├── Button/    # ボタンコンポーネント
-│   │   │   ├── Card/      # カードコンポーネント
-│   │   │   ├── Input/     # 入力コンポーネント
-│   │   │   ├── Select/    # セレクトコンポーネント
-│   │   │   ├── Table/     # テーブルコンポーネント
-│   │   │   └── Layout/    # レイアウトコンポーネント
-│   │   │
-│   │   ├── hooks/         # 共通Reactフック
-│   │   │   ├── useAuth.ts # 認証フック
-│   │   │   ├── useFetch.ts # データ取得フック
-│   │   │   └── useForm.ts  # フォーム管理フック
-│   │   │
-│   │   └── utils/         # ユーティリティ関数
-│   │       ├── api.ts     # API連携ユーティリティ
-│   │       ├── formatter.ts # データフォーマッター
-│   │       └── validation.ts # バリデーションユーティリティ
-│   │
-│   ├── features/          # 機能ごとにグループ化
-│   │   ├── auth/          # 認証機能
-│   │   │   ├── components/  # 認証関連コンポーネント
-│   │   │   │   ├── LoginForm.tsx
-│   │   │   │   └── PasswordReset.tsx
-│   │   │   ├── hooks/       # 認証関連フック
-│   │   │   │   └── useLogin.ts
-│   │   │   ├── pages/       # 画面コンポーネント
-│   │   │   │   ├── LoginPage.tsx
-│   │   │   │   └── RegisterPage.tsx
-│   │   │   └── api.ts       # API連携コード
-│   │   │
-│   │   ├── dashboard/      # ダッシュボード機能
-│   │   │   ├── components/  # ダッシュボード関連コンポーネント
-│   │   │   ├── hooks/       # ダッシュボード関連フック
-│   │   │   ├── pages/       # 画面コンポーネント
-│   │   │   │   └── DashboardPage.tsx
-│   │   │   └── api.ts       # API連携コード
-│   │   │
-│   │   ├── properties/     # 物件管理機能
-│   │   │   ├── components/  # 物件関連コンポーネント
-│   │   │   │   ├── PropertyForm.tsx
-│   │   │   │   ├── PropertyList.tsx
-│   │   │   │   └── SurveyMapUploader.tsx
-│   │   │   ├── hooks/       # 物件関連フック
-│   │   │   ├── pages/       # 画面コンポーネント
-│   │   │   │   ├── PropertyListPage.tsx
-│   │   │   │   ├── PropertyRegisterPage.tsx
-│   │   │   │   └── PropertyDetailPage.tsx
-│   │   │   └── api.ts       # API連携コード
-│   │   │
-│   │   ├── volume-check/   # ボリュームチェック機能
-│   │   │   ├── components/  # ボリュームチェック関連コンポーネント
-│   │   │   │   ├── AssetTypeSelector.tsx
-│   │   │   │   ├── BuildingParamsForm.tsx
-│   │   │   │   ├── Model3DViewer.tsx
-│   │   │   │   └── VolumeResults.tsx
-│   │   │   ├── hooks/       # ボリュームチェック関連フック
-│   │   │   ├── pages/       # 画面コンポーネント
-│   │   │   │   └── VolumeCheckPage.tsx
-│   │   │   └── api.ts       # API連携コード
-│   │   │
-│   │   └── profitability/  # 収益性試算機能
-│   │       ├── components/  # 収益性試算関連コンポーネント
-│   │       │   ├── FinancialParamsForm.tsx
-│   │       │   ├── ProfitabilityResults.tsx
-│   │       │   ├── ScenarioManager.tsx
-│   │       │   └── charts/  # チャートコンポーネント
-│   │       │       ├── CashFlowChart.tsx
-│   │       │       └── SensitivityChart.tsx
-│   │       ├── hooks/       # 収益性試算関連フック
-│   │       ├── pages/       # 画面コンポーネント
-│   │       │   └── ProfitabilityPage.tsx
-│   │       └── api.ts       # API連携コード
-│   │
-│   ├── app/               # アプリケーションのコア
-│   │   ├── routes.tsx     # ルーティング
-│   │   ├── providers.tsx  # コンテキストプロバイダー
-│   │   ├── store.ts       # 状態管理（Reduxなど）
-│   │   └── theme.ts       # テーマ設定
-│   │
-│   ├── styles/            # グローバルスタイル
-│   │   ├── globals.css    # グローバルCSS
-│   │   └── variables.css  # CSSカスタムプロパティ
-│   │
-│   ├── config/            # アプリケーション設定
-│   │   └── app.config.ts  # 環境に応じた設定
-│   │
-│   └── index.tsx          # エントリーポイント
-│
-├── .env                  # 環境変数
-├── package.json          # パッケージ設定
-└── tsconfig.json         # TypeScript設定
-```
+- **ビジネス理解の向上**: ディレクトリ構造が技術的な関心事ではなくビジネス機能を反映しているため、非技術者にとっても理解しやすい
+- **チーム作業の効率化**: 同じ機能に関連するコードが同じディレクトリにまとまっているため、複数の開発者が同じ機能に取り組む際の衝突が減少
+- **コードの再利用性**: 共通コンポーネントと機能固有のコンポーネントが明確に分離されているため、再利用が容易
+- **スケーラビリティ**: 新機能の追加が既存のコードに影響を与えにくく、独立した形で実装可能
+- **テスト容易性**: 機能単位でのテストが容易になり、テストカバレッジの向上につながる
 
-## 共有リソース構造
+### 5.2 推奨開発ワークフロー
 
-フロントエンドとバックエンドで共有するリソースは、共通のフォーマットでトップレベルに配置します。
+1. **共有層の定義**: 新機能の開発を始める前に、必要な型定義とAPIパスを `shared/index.ts` に追加
+2. **バックエンド実装**: 型定義を参照しながらバックエンドの機能を実装
+3. **フロントエンド実装**: 同じ型定義を参照しながらフロントエンドのコンポーネントとページを実装
+4. **統合テスト**: バックエンドとフロントエンドの統合テストを実施
+5. **リファクタリング**: 共通化できる部分を特定し、必要に応じて共通層に移動
 
-```
-/shared/
-├── index.ts            # 共有型定義とAPIパス（単一の真実源）
-├── constants.ts        # 共有定数
-└── validation/         # 共有バリデーションスキーマ（オプション）
-    ├── property.schema.ts
-    └── user.schema.ts
-```
+## 6. 発展の方向性
 
-## パッケージ管理
+この設計は将来の拡張を考慮しており、以下のような発展が想定されています：
 
-プロジェクトは、フロントエンドとバックエンドを別々のパッケージとして管理しながらも、共通の依存関係を持つモノレポ構造を採用します。
-
-### ルートpackage.json
-
-```json
-{
-  "name": "hinago-project",
-  "version": "1.0.0",
-  "private": true,
-  "workspaces": [
-    "frontend",
-    "backend",
-    "shared"
-  ],
-  "scripts": {
-    "start": "concurrently \"yarn start:frontend\" \"yarn start:backend\"",
-    "start:frontend": "cd frontend && yarn start",
-    "start:backend": "cd backend && yarn start",
-    "build": "yarn build:shared && concurrently \"yarn build:frontend\" \"yarn build:backend\"",
-    "build:frontend": "cd frontend && yarn build",
-    "build:backend": "cd backend && yarn build",
-    "build:shared": "cd shared && yarn build",
-    "test": "concurrently \"yarn test:frontend\" \"yarn test:backend\"",
-    "test:frontend": "cd frontend && yarn test",
-    "test:backend": "cd backend && yarn test",
-    "lint": "concurrently \"yarn lint:frontend\" \"yarn lint:backend\" \"yarn lint:shared\"",
-    "lint:frontend": "cd frontend && yarn lint",
-    "lint:backend": "cd backend && yarn lint",
-    "lint:shared": "cd shared && yarn lint"
-  },
-  "devDependencies": {
-    "concurrently": "^7.6.0",
-    "typescript": "^4.9.5"
-  }
-}
-```
-
-この機能中心のディレクトリ構造は、以下の利点を提供します：
-
-1. **ビジネス機能がすぐに把握できる**: ディレクトリ名が技術的でなくビジネス機能に基づいているため、非技術者も含めたプロジェクト関係者が全体像を把握しやすい
-2. **関連コードの共存**: 機能に関連するすべてのコードが1つの場所にまとまっているため、変更が必要な場合に探しやすい
-3. **モジュール境界の明確化**: 機能ごとに明確な境界があり、責任の分離がしやすい
-4. **拡張性の向上**: 新しい機能を追加する際に、既存の機能に影響を与えずに追加できる
-5. **テストのしやすさ**: 機能単位でテストが構成しやすく、関連するテストケースが集約される
+1. **マイクロフロントエンド化**: 機能ごとにさらに細分化し、独立したマイクロフロントエンドとして開発・デプロイする可能性
+2. **マイクロサービス化**: バックエンドも同様に、機能ごとに独立したマイクロサービスとして切り出す可能性
+3. **コンテナ化**: 各機能をコンテナ化し、Kubernetes等のオーケストレーションツールで管理する方向性
+4. **CI/CD自動化**: 機能単位でのCI/CDパイプラインの構築と自動化

@@ -1,192 +1,108 @@
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { API_PATHS, ApiResponse } from '../../../../shared/index';
+/**
+ * API通信用ユーティリティ
+ */
+import { ApiResponse } from '../../../shared';
 
 /**
- * API基本設定
+ * HTTPリクエストを送信する共通関数
+ * @param url APIエンドポイント
+ * @param options リクエストオプション
+ * @returns レスポンスデータ
  */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-const DEFAULT_TIMEOUT = 15000; // 15秒
-
-/**
- * カスタムAxiosインスタンスの作成
- */
-const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: DEFAULT_TIMEOUT,
-  headers: {
+export async function fetchApi<T>(
+  url: string, 
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  // デフォルトのヘッダーを設定
+  const headers = {
     'Content-Type': 'application/json',
-  },
-});
+    ...options.headers,
+  };
 
-/**
- * 認証トークンを取得する
- */
-const getAuthToken = (): string | null => {
-  return localStorage.getItem('token');
-};
+  // 認証トークンがあれば追加
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
-/**
- * 認証関連のストレージ操作
- */
-export const authStorage = {
-  /**
-   * トークンを保存する
-   */
-  saveTokens: (token: string, refreshToken: string, expiresAt: string, rememberMe: boolean = false): void => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('expiresAt', expiresAt);
-    localStorage.setItem('rememberMe', String(rememberMe));
-  },
+  // リクエストを送信
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
 
-  /**
-   * トークンを削除する
-   */
-  clearTokens: (): void => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('expiresAt');
-    localStorage.removeItem('rememberMe');
-  },
+  // JSONレスポンスを解析
+  const data = await response.json();
 
-  /**
-   * トークンの有効期限をチェックする
-   */
-  isTokenExpired: (): boolean => {
-    const expiresAt = localStorage.getItem('expiresAt');
-    if (!expiresAt) return true;
-    
-    return new Date(expiresAt).getTime() <= new Date().getTime();
-  },
-
-  /**
-   * すべての認証情報を取得する
-   */
-  getAuthInfo: () => {
+  // エラーレスポンスの場合
+  if (!response.ok) {
+    console.error('API Error:', data);
     return {
-      token: localStorage.getItem('token'),
-      refreshToken: localStorage.getItem('refreshToken'),
-      expiresAt: localStorage.getItem('expiresAt'),
-      rememberMe: localStorage.getItem('rememberMe') === 'true',
+      success: false,
+      error: data.error || '通信エラーが発生しました',
     };
   }
-};
+
+  // 成功レスポンスを返却
+  return {
+    success: true,
+    data: data.data,
+    meta: data.meta,
+  };
+}
 
 /**
- * リクエストインターセプター: 認証トークンを追加
+ * GETリクエストを送信
+ * @param url APIエンドポイント
+ * @param options リクエストオプション
+ * @returns レスポンスデータ
  */
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = getAuthToken();
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+export function get<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  return fetchApi<T>(url, {
+    method: 'GET',
+    ...options,
+  });
+}
 
 /**
- * レスポンスインターセプター: エラーハンドリングとトークン更新
+ * POSTリクエストを送信
+ * @param url APIエンドポイント
+ * @param data リクエストデータ
+ * @param options リクエストオプション
+ * @returns レスポンスデータ
  */
-apiClient.interceptors.response.use(
-  (response: AxiosResponse) => {
-    // 標準APIレスポンス構造に変換
-    return response.data;
-  },
-  async (error: AxiosError) => {
-    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
-    
-    // 認証エラー（401）かつリトライしていない場合で、更新トークンが存在する場合
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      localStorage.getItem('refreshToken')
-    ) {
-      originalRequest._retry = true;
-      
-      try {
-        // トークン更新APIを呼び出し
-        const refreshToken = localStorage.getItem('refreshToken');
-        const rememberMe = localStorage.getItem('rememberMe') === 'true';
-        
-        const response = await axios.post<ApiResponse<{ token: string; refreshToken: string; expiresAt: string }>>(
-          `${API_BASE_URL}${API_PATHS.AUTH.REFRESH}`,
-          { refreshToken, rememberMe }
-        );
-        
-        if (response.data.success && response.data.data) {
-          const { token, refreshToken, expiresAt } = response.data.data;
-          
-          // 新しいトークンを保存
-          authStorage.saveTokens(token, refreshToken, expiresAt, rememberMe);
-          
-          // 元のリクエストに新しいトークンを設定して再試行
-          originalRequest.headers = originalRequest.headers || {};
-          originalRequest.headers['Authorization'] = `Bearer ${token}`;
-          
-          return apiClient(originalRequest);
-        }
-      } catch (refreshError) {
-        // リフレッシュトークンが無効な場合は認証情報をクリア
-        authStorage.clearTokens();
-        
-        // ログインページへリダイレクト
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
-    }
-    
-    // API形式のエラーレスポンスの場合
-    if (error.response?.data) {
-      return Promise.reject(error.response.data);
-    }
-    
-    // その他のエラー
-    return Promise.reject({
-      success: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: 'ネットワークエラーが発生しました',
-        details: error.message,
-      },
-    });
-  }
-);
+export function post<T>(url: string, data: any, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  return fetchApi<T>(url, {
+    method: 'POST',
+    body: JSON.stringify(data),
+    ...options,
+  });
+}
 
 /**
- * API呼び出しラッパー
+ * PUTリクエストを送信
+ * @param url APIエンドポイント
+ * @param data リクエストデータ
+ * @param options リクエストオプション
+ * @returns レスポンスデータ
  */
-export const api = {
-  /**
-   * GET リクエスト
-   */
-  get: <T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
-    return apiClient.get(url, config);
-  },
-  
-  /**
-   * POST リクエスト
-   */
-  post: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
-    return apiClient.post(url, data, config);
-  },
-  
-  /**
-   * PUT リクエスト
-   */
-  put: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
-    return apiClient.put(url, data, config);
-  },
-  
-  /**
-   * DELETE リクエスト
-   */
-  delete: <T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
-    return apiClient.delete(url, config);
-  },
-};
+export function put<T>(url: string, data: any, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  return fetchApi<T>(url, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+    ...options,
+  });
+}
 
-export default api;
+/**
+ * DELETEリクエストを送信
+ * @param url APIエンドポイント
+ * @param options リクエストオプション
+ * @returns レスポンスデータ
+ */
+export function del<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  return fetchApi<T>(url, {
+    method: 'DELETE',
+    ...options,
+  });
+}

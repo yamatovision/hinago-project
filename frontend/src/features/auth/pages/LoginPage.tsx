@@ -1,97 +1,61 @@
-import React from 'react';
-import {
-  Box,
-  Container,
-  Paper,
-  Typography,
-  Avatar,
-  useTheme,
-  useMediaQuery,
-} from '@mui/material';
-import { Business as BusinessIcon } from '@mui/icons-material';
-import LoginForm from '@features/auth/components/LoginForm';
-
 /**
- * ログインページコンポーネント
+ * ログインページ
  */
-const LoginPage: React.FC = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+import { useEffect } from 'react';
+import { Box, Typography, CssBaseline } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import LoginForm from '../components/LoginForm';
+import { useAuth } from '../../../common/hooks/useAuth';
+
+const LoginPage = () => {
+  const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  // 認証済みの場合はダッシュボードへリダイレクト
+  useEffect(() => {
+    if (user && !isLoading) {
+      navigate('/dashboard');
+    }
+  }, [user, isLoading, navigate]);
+
+  // ログイン成功時の処理
+  const handleLoginSuccess = () => {
+    navigate('/dashboard');
+  };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'linear-gradient(to right bottom, #f5f5f5, #e0e0e0)',
-      }}
-    >
-      <Container component="main" maxWidth="sm" sx={{ mb: 4, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <Paper
-          elevation={3}
-          sx={{
-            borderRadius: 2,
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* ヘッダー部分 */}
-          <Box
-            sx={{
-              bgcolor: 'primary.main',
-              color: 'white',
-              p: 3,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            <Avatar
-              sx={{
-                m: 1,
-                bgcolor: 'white',
-                color: 'primary.main',
-                width: 56,
-                height: 56,
-              }}
-            >
-              <BusinessIcon fontSize="large" />
-            </Avatar>
-            <Typography component="h1" variant="h5" sx={{ mt: 1, fontWeight: 500 }}>
-              Hinago
-            </Typography>
-            <Typography variant="subtitle1" sx={{ fontWeight: 400 }}>
-              ボリュームチェックシステム
-            </Typography>
-          </Box>
-
-          {/* フォーム部分 */}
-          <Box sx={{ p: 3, pt: 4 }}>
-            <LoginForm />
-          </Box>
-        </Paper>
-      </Container>
-
-      {/* フッター */}
+    <>
+      <CssBaseline />
       <Box
-        component="footer"
         sx={{
-          py: 2,
-          px: 2,
-          mt: 'auto',
-          backgroundColor: 'white',
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '100vh',
+          bgcolor: '#f5f5f5',
         }}
       >
-        <Typography variant="body2" color="text.secondary">
-          &copy; {new Date().getFullYear()} Hinago - ボリュームチェックシステム. All Rights Reserved.
-        </Typography>
+        {/* メインコンテンツ */}
+        <LoginForm onSuccess={handleLoginSuccess} />
+
+        {/* フッター */}
+        <Box
+          component="footer"
+          sx={{
+            py: 2,
+            px: 2,
+            mt: 'auto',
+            bgcolor: 'white',
+            borderTop: 1,
+            borderColor: 'divider',
+            textAlign: 'center',
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            &copy; 2025 Hinago - ボリュームチェックシステム. All Rights Reserved.
+          </Typography>
+        </Box>
       </Box>
-    </Box>
+    </>
   );
 };
 

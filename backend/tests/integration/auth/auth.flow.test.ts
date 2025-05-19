@@ -1,185 +1,175 @@
 /**
- * 認証APIの統合テスト
+ * 認証フロー統合テスト
  */
 import request from 'supertest';
-import jwt from 'jsonwebtoken';
 import app from '../../../src/app';
-import config from '../../../src/config';
-import { 
-  createTestUser, 
-  createTestOrganization, 
-  createTestRefreshToken 
-} from '../../utils/db-test-helper';
-import { getAuthHeader } from '../../utils/test-auth-helper';
-import { API_PATHS } from '../../../src/types';
+import { appConfig, authConfig } from '../../../src/config';
+import { setupTestDatabase, cleanupTestDatabase } from '../../utils/db-test-helper';
+import { getTestAuth } from '../../utils/test-auth-helper';
 
-describe('認証API', () => {
-  describe('ユーザー登録フロー', () => {
-    it('有効なデータでユーザーを登録できる', async () => {
-      const registerData = {
-        email: 'newuser@example.com',
-        password: 'Password123',
-        name: '新規ユーザー',
-        organizationName: '新規組織',
+// APIのベースURL
+const baseUrl = appConfig.app.apiPrefix;
+
+// テスト実行前のセットアップ
+beforeAll(async () => {
+  await setupTestDatabase();
+});
+
+// テスト実行後のクリーンアップ
+afterAll(async () => {
+  await cleanupTestDatabase();
+});
+
+describe('認証フロー', () => {
+  let accessToken: string;
+  let refreshToken: string;
+  
+  // ログインのテスト
+  describe('POST /auth/login', () => {
+    it('有効な認証情報でログインができる', async () => {
+      const credentials = {
+        email: authConfig.auth.adminUser.email,
+        password: authConfig.auth.adminUser.password,
       };
       
-      const response = await request(app)
-        .post(API_PATHS.AUTH.REGISTER)
-        .send(registerData)
-        .expect(201);
+      const res = await request(app)
+        .post(`${baseUrl}/auth/login`)
+        .send(credentials);
       
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.user).toBeDefined();
-      expect(response.body.data.token).toBeDefined();
-      expect(response.body.data.user.email).toBe(registerData.email);
-      expect(response.body.data.user.name).toBe(registerData.name);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('accessToken');
+      expect(res.body.data).toHaveProperty('refreshToken');
+      expect(res.body.data).toHaveProperty('user');
+      expect(res.body.data.user.email).toBe(credentials.email);
+      
+      // 後続のテストのためにトークンを保存
+      accessToken = res.body.data.accessToken;
+      refreshToken = res.body.data.refreshToken;
     });
     
-    it('既存のメールアドレスで登録するとエラーになる', async () => {
-      const email = 'existing@example.com';
-      await createTestUser(email);
-      
-      const registerData = {
-        email,
-        password: 'Password123',
-        name: '重複ユーザー',
-        organizationName: '重複組織',
+    it('無効なメールアドレスでログインできない', async () => {
+      const invalidCredentials = {
+        email: 'invalid@example.com',
+        password: authConfig.auth.adminUser.password,
       };
       
-      const response = await request(app)
-        .post(API_PATHS.AUTH.REGISTER)
-        .send(registerData)
-        .expect(409);
+      const res = await request(app)
+        .post(`${baseUrl}/auth/login`)
+        .send(invalidCredentials);
       
-      expect(response.body.success).toBe(false);
-      expect(response.body.error.code).toBe('RESOURCE_ALREADY_EXISTS');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toHaveProperty('code', 'INVALID_CREDENTIALS');
     });
     
-    it('不正なデータで登録するとバリデーションエラーになる', async () => {
-      // メールアドレスが不正
-      const invalidEmailData = {
-        email: 'invalid-email',
-        password: 'Password123',
-        name: 'バリデーションテスト',
-        organizationName: 'テスト組織',
+    it('無効なパスワードでログインできない', async () => {
+      const invalidCredentials = {
+        email: authConfig.auth.adminUser.email,
+        password: 'invalidpassword',
       };
       
-      const emailResponse = await request(app)
-        .post(API_PATHS.AUTH.REGISTER)
-        .send(invalidEmailData)
-        .expect(422);
+      const res = await request(app)
+        .post(`${baseUrl}/auth/login`)
+        .send(invalidCredentials);
       
-      expect(emailResponse.body.success).toBe(false);
-      expect(emailResponse.body.error.code).toBe('VALIDATION_ERROR');
-      
-      // パスワードが短すぎる
-      const shortPasswordData = {
-        email: 'valid@example.com',
-        password: 'short',
-        name: 'バリデーションテスト',
-        organizationName: 'テスト組織',
-      };
-      
-      const passwordResponse = await request(app)
-        .post(API_PATHS.AUTH.REGISTER)
-        .send(shortPasswordData)
-        .expect(422);
-      
-      expect(passwordResponse.body.success).toBe(false);
-      expect(passwordResponse.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toHaveProperty('code', 'INVALID_CREDENTIALS');
     });
   });
   
-  describe('ログインフロー', () => {
-    it('正しい認証情報でログインできる', async () => {
-      const email = 'login@example.com';
-      const password = 'Password123';
-      await createTestUser(email, password);
+  // 認証状態確認のテスト
+  describe('GET /auth/me', () => {
+    it('有効なトークンで認証ユーザー情報を取得できる', async () => {
+      const { authHeader } = await getTestAuth();
       
-      const loginData = {
-        email,
-        password,
-      };
+      const res = await request(app)
+        .get(`${baseUrl}/auth/me`)
+        .set('Authorization', authHeader);
       
-      const response = await request(app)
-        .post(API_PATHS.AUTH.LOGIN)
-        .send(loginData)
-        .expect(200);
-      
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.user).toBeDefined();
-      expect(response.body.data.token).toBeDefined();
-      expect(response.body.data.user.email).toBe(email);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('user');
+      expect(res.body.data.user.email).toBe(authConfig.auth.adminUser.email);
     });
     
-    it('存在しないユーザーではログインできない', async () => {
-      const loginData = {
-        email: 'nonexistent@example.com',
-        password: 'Password123',
-      };
+    it('トークンなしでユーザー情報を取得できない', async () => {
+      const res = await request(app)
+        .get(`${baseUrl}/auth/me`);
       
-      const response = await request(app)
-        .post(API_PATHS.AUTH.LOGIN)
-        .send(loginData)
-        .expect(401);
-      
-      expect(response.body.success).toBe(false);
-      expect(response.body.error.code).toBe('INVALID_CREDENTIALS');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toHaveProperty('code', 'AUTH_REQUIRED');
     });
     
-    it('パスワードが間違っているとログインできない', async () => {
-      const email = 'wrongpassword@example.com';
-      await createTestUser(email, 'Correct123Password');
+    it('無効なトークンでユーザー情報を取得できない', async () => {
+      const res = await request(app)
+        .get(`${baseUrl}/auth/me`)
+        .set('Authorization', 'Bearer invalid.token.here');
       
-      const loginData = {
-        email,
-        password: 'Wrong123Password',
-      };
-      
-      const response = await request(app)
-        .post(API_PATHS.AUTH.LOGIN)
-        .send(loginData)
-        .expect(401);
-      
-      expect(response.body.success).toBe(false);
-      expect(response.body.error.code).toBe('INVALID_CREDENTIALS');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toHaveProperty('code', 'INVALID_TOKEN');
     });
   });
   
-  describe('認証済みユーザー情報取得', () => {
-    it('有効なトークンで自分のユーザー情報を取得できる', async () => {
-      const user = await createTestUser();
-      const accessToken = jwt.sign(
-        { 
-          id: user._id.toString(),
-          email: user.email,
-          role: user.role,
-          organizationId: user.organizationId.toString()
-        }, 
-        config.auth.jwt.secret,
-        { expiresIn: '15m' }
-      );
+  // トークン更新のテスト
+  describe('POST /auth/refresh', () => {
+    it('有効なリフレッシュトークンで新しいアクセストークンを取得できる', async () => {
+      // まずログインして有効なリフレッシュトークンを取得
+      const { refreshToken } = await getTestAuth();
       
-      const response = await request(app)
-        .get(API_PATHS.AUTH.ME)
-        .set(getAuthHeader(accessToken))
-        .expect(200);
+      const res = await request(app)
+        .post(`${baseUrl}/auth/refresh`)
+        .send({ refreshToken });
       
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.user).toBeDefined();
-      expect(response.body.data.user.email).toBe(user.email);
-      expect(response.body.data.user.organization).toBeDefined();
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('accessToken');
     });
     
-    it('認証なしでユーザー情報にアクセスできない', async () => {
-      const response = await request(app)
-        .get(API_PATHS.AUTH.ME)
-        .expect(401);
+    it('無効なリフレッシュトークンで新しいアクセストークンを取得できない', async () => {
+      const res = await request(app)
+        .post(`${baseUrl}/auth/refresh`)
+        .send({ refreshToken: 'invalid-refresh-token' });
       
-      expect(response.body.success).toBe(false);
-      expect(response.body.error.code).toBe('AUTH_REQUIRED');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toHaveProperty('code', 'INVALID_TOKEN');
     });
   });
   
-  // TODO: トークン更新、ログアウト、パスワードリセットのテスト
+  // ログアウトのテスト
+  describe('POST /auth/logout', () => {
+    it('有効なトークンでログアウトできる', async () => {
+      const { authHeader, refreshToken } = await getTestAuth();
+      
+      const res = await request(app)
+        .post(`${baseUrl}/auth/logout`)
+        .set('Authorization', authHeader)
+        .send({ refreshToken });
+      
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('message', 'ログアウトしました');
+      
+      // ログアウト後にリフレッシュトークンが無効になっていることを確認
+      const refreshRes = await request(app)
+        .post(`${baseUrl}/auth/refresh`)
+        .send({ refreshToken });
+      
+      expect(refreshRes.status).toBe(401);
+      expect(refreshRes.body.success).toBe(false);
+    });
+    
+    it('トークンなしでログアウトできない', async () => {
+      const res = await request(app)
+        .post(`${baseUrl}/auth/logout`);
+      
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toHaveProperty('code', 'AUTH_REQUIRED');
+    });
+  });
 });
