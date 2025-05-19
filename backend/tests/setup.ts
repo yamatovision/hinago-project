@@ -5,7 +5,7 @@
 import { config } from 'dotenv';
 import mongoose from 'mongoose';
 import { initializeDatabase } from '../src/db/connection';
-import { setupTestDatabase, cleanupTestDatabase } from './utils/db-test-helper';
+import { connectDB, disconnectDB } from './utils/db-test-helper';
 import { verifyTestAdminUser } from './utils/test-auth-helper';
 import { logger } from '../src/common/utils';
 
@@ -35,7 +35,7 @@ beforeAll(async () => {
   
   try {
     // データベース接続
-    await setupTestDatabase();
+    await connectDB();
     
     // 管理者ユーザーの検証と初期化
     const adminResult = await verifyTestAdminUser();
@@ -57,7 +57,7 @@ beforeAll(async () => {
 afterAll(async () => {
   try {
     // データベース接続のクリーンアップ
-    await cleanupTestDatabase();
+    await disconnectDB();
   } catch (error) {
     console.error('テスト環境クリーンアップエラー:', error);
   }

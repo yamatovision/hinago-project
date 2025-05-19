@@ -14,7 +14,7 @@ let mongoServer: MongoMemoryServer;
 /**
  * テスト用データベースのセットアップ
  */
-export const setupTestDatabase = async () => {
+export const connectDB = async () => {
   try {
     // すでに接続されている場合はスキップ
     if (mongoose.connection.readyState === 1) {
@@ -41,7 +41,7 @@ export const setupTestDatabase = async () => {
 /**
  * テスト後のデータベースクリーンアップ
  */
-export const cleanupTestDatabase = async () => {
+export const disconnectDB = async () => {
   try {
     if (mongoose.connection.readyState !== 0) {
       // コレクションをクリアする場合はここで実行
@@ -76,6 +76,26 @@ const setupInitialData = async () => {
     logger.info('テスト用初期データのセットアップが完了しました');
   } catch (error) {
     logger.error('テスト用初期データセットアップエラー', { error });
+    throw error;
+  }
+};
+
+/**
+ * コレクションをクリアする
+ * @param collectionName コレクション名
+ */
+export const clearCollection = async (collectionName: string) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      logger.warn('データベースに接続されていません');
+      return false;
+    }
+    
+    await mongoose.connection.collection(collectionName).deleteMany({});
+    logger.info(`コレクション ${collectionName} をクリアしました`);
+    return true;
+  } catch (error) {
+    logger.error(`コレクション ${collectionName} のクリアに失敗しました`, { error });
     throw error;
   }
 };
