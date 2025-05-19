@@ -5,7 +5,7 @@
  */
 import express from 'express';
 import * as geoController from './geo.controller';
-import { validateGeocode } from './geo.validator';
+import { validateGeocode, validateReverseGeocode } from './geo.validator';
 import { authRequired } from '../../common/middlewares/auth.middleware';
 
 const router = express.Router();
@@ -20,6 +20,18 @@ router.get(
   authRequired,
   validateGeocode,
   geoController.getGeocode
+);
+
+/**
+ * @route GET /api/v1/geocode/reverse
+ * @desc 緯度経度から住所情報を取得
+ * @access 認証済みユーザー
+ */
+router.get(
+  '/reverse', 
+  authRequired,
+  validateReverseGeocode,
+  geoController.getReverseGeocode
 );
 
 export default router;

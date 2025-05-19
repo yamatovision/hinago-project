@@ -4,7 +4,13 @@
 import { errorHandler, notFoundHandler, AppError } from './error.middleware';
 import { validate } from './validation.middleware';
 import { authRequired, hasRole, adminOnly, rateLimiter } from './auth.middleware';
-import { uploadSurveyMap, handleUploadError, getFileUrl, extractShapeFromFile } from './upload.middleware';
+import { 
+  uploadSurveyMap, 
+  uploadPropertyDocument, 
+  handleUploadError, 
+  getFileUrl, 
+  extractShapeFromFile 
+} from './upload.middleware';
 
 export {
   errorHandler,
@@ -16,6 +22,7 @@ export {
   adminOnly,
   rateLimiter,
   uploadSurveyMap,
+  uploadPropertyDocument,
   handleUploadError,
   getFileUrl,
   extractShapeFromFile,

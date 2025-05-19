@@ -110,10 +110,28 @@ export const updateProperty = async (
  * @returns 削除成功フラグ
  */
 export const deleteProperty = async (propertyId: string): Promise<boolean> => {
-  const url = API_PATHS.PROPERTIES.DETAIL(propertyId);
-  const response = await del<ApiResponse<any>>(url);
+  try {
+    // MongoDBのObjectID形式を満たしているか簡易チェック
+    if (!propertyId || propertyId.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(propertyId)) {
+      console.error('無効な物件ID形式:', propertyId);
+      return false;
+    }
+    
+    const url = API_PATHS.PROPERTIES.DETAIL(propertyId);
+    const response = await del<ApiResponse<any>>(url);
 
-  return response.success;
+    // 204 No Contentの場合は成功と判断
+    if (response.success) {
+      return true;
+    }
+    
+    // エラーがあれば失敗
+    console.error('物件削除失敗:', response.error);
+    return false;
+  } catch (error) {
+    console.error('物件削除APIエラー:', error);
+    throw error; // エラーを上位に伝播して詳細なエラーハンドリングを可能に
+  }
 };
 
 /**

@@ -44,6 +44,29 @@ export async function fetchApi<T>(
 
     console.log(`APIステータスコード: ${response.status} ${response.statusText}`);
     
+    // DELETEリクエストで204レスポンスの場合は成功として処理
+    if (options.method === 'DELETE' && response.status === 204) {
+      return {
+        success: true,
+        data: null,
+      };
+    }
+    
+    // レスポンスが空の場合はエラー
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('APIレスポンスがJSONではありません:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType
+      });
+      
+      return {
+        success: false,
+        error: `予期しないレスポンス形式: ${contentType || '不明'}`,
+      };
+    }
+    
     // JSONレスポンスを解析
     const data = await response.json();
 

@@ -66,6 +66,10 @@ export const disconnectDB = async () => {
   }
 };
 
+// テスト互換性のために、別名でも関数をエクスポート
+export const setupTestDatabase = connectDB;
+export const cleanupTestDatabase = disconnectDB;
+
 /**
  * 初期テストデータのセットアップ
  */

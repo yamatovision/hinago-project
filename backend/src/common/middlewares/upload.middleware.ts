@@ -21,7 +21,18 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 // ストレージ設定
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR);
+    // 物件関連文書用のサブディレクトリがあれば使用
+    const propertyId = req.params?.propertyId;
+    if (propertyId && req.path.includes('/documents')) {
+      const propertyDir = path.join(UPLOAD_DIR, 'documents', propertyId);
+      if (!fs.existsSync(propertyDir)) {
+        fs.mkdirSync(propertyDir, { recursive: true });
+        logger.info(`物件文書用ディレクトリを作成しました: ${propertyDir}`);
+      }
+      cb(null, propertyDir);
+    } else {
+      cb(null, UPLOAD_DIR);
+    }
   },
   filename: (req, file, cb) => {
     // オリジナルファイル名を保持しつつユニークなファイル名を生成
@@ -40,7 +51,14 @@ const ALLOWED_MIME_TYPES = [
   'image/tiff',               // TIFF
   'application/dxf',          // DXF
   'application/dwg',          // DWG
-  'application/octet-stream'  // 一般バイナリ（DWG, DXFなど）
+  'application/octet-stream', // 一般バイナリ（DWG, DXFなど）
+  'application/msword',       // DOC
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+  'application/vnd.ms-excel', // XLS
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
+  'application/zip',          // ZIP
+  'text/plain',               // TXT
+  'text/csv'                  // CSV
 ];
 
 // ファイルフィルター関数
@@ -50,7 +68,7 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallb
     cb(null, true);
   } else {
     // ファイルを拒否
-    cb(new Error('許可されていないファイル形式です。PDF、PNG、JPEG、TIFF、DWG、DXF形式のみ許可されています。'));
+    cb(new Error('許可されていないファイル形式です。一般的なドキュメント形式（PDF、画像、オフィス文書など）のみ許可されています。'));
   }
 };
 
@@ -65,6 +83,9 @@ const upload = multer({
 
 // 測量図アップロード用のミドルウェア
 export const uploadSurveyMap = upload.single('file');
+
+// 物件文書アップロード用のミドルウェア
+export const uploadPropertyDocument = upload.single('file');
 
 // ファイルアップロードエラーハンドラー
 export const handleUploadError = (err: any, req: Request, res: any, next: any) => {
@@ -110,7 +131,9 @@ const getMulterErrorMessage = (err: multer.MulterError): string => {
 
 // ファイル情報からURLを生成する関数
 export const getFileUrl = (file: Express.Multer.File): string => {
-  return `/uploads/${file.filename}`;
+  // パスを確認して適切なURLを生成
+  const relativePath = file.path.replace(process.cwd(), '').replace(/\\/g, '/');
+  return relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
 };
 
 // アップロードされたファイルからの形状抽出関数（モック実装）

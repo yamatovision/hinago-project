@@ -67,6 +67,7 @@
 | メソッド | エンドポイント | 概要 | 認証レベル | 詳細ドキュメント |
 |---------|--------------|------|----------|----------------|
 | GET | `/api/v1/geocode` | 住所から緯度経度情報を取得 | 認証必須 | [物件API仕様書](/docs/api/properties.md#14-ジオコーディング---get-apiv1geocode) |
+| GET | `/api/v1/geocode/reverse` | 緯度経度から住所情報を取得 | 認証必須 | [物件API仕様書](/docs/api/properties.md#15-逆ジオコーディング---get-apiv1geocodereverse) |
 
 ## URLパターン
 

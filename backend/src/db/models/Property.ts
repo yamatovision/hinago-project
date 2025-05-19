@@ -171,6 +171,20 @@ export class PropertyModel {
    */
   static async delete(id: string): Promise<boolean> {
     try {
+      // IDが有効なMongoDBのObjectIDかチェック
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        logger.warn('無効な物件ID形式で削除が試行されました', { id });
+        return false;
+      }
+      
+      // 物件が存在するか確認
+      const property = await MongoPropertyModel.findById(id);
+      if (!property) {
+        logger.warn('削除対象の物件が存在しません', { id });
+        return false;
+      }
+      
+      // 物件を削除
       const result = await MongoPropertyModel.findByIdAndDelete(id);
       return !!result;
     } catch (error) {

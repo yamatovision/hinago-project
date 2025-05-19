@@ -112,6 +112,21 @@ export interface PropertyShape {
   sourceFile?: string; // 測量図ファイルのURL
 }
 
+// 地理座標の型
+export interface GeoLocation {
+  lat: number; // 緯度
+  lng: number; // 経度
+  formatted_address?: string; // フォーマット済み住所（APIから返却される場合に使用）
+}
+
+// 地図表示設定の型
+export interface MapViewSettings {
+  zoom: number; // 初期ズームレベル
+  mapType?: string; // 地図種別（通常、航空写真など）
+  showNearbyFacilities?: boolean; // 周辺施設表示フラグ
+  showTraffic?: boolean; // 交通情報表示フラグ
+}
+
 // 物件基本情報
 export interface PropertyBase {
   name: string; // 物件名
@@ -129,6 +144,7 @@ export interface PropertyBase {
   status?: PropertyStatus; // 物件ステータス
   notes?: string; // 備考・メモ
   shapeData?: PropertyShape; // 敷地形状データ
+  geoLocation?: GeoLocation; // 位置情報（緯度・経度）
 }
 
 // 物件作成時の型
@@ -403,6 +419,7 @@ export const API_PATHS = {
   // ジオコーディング関連
   GEO: {
     GEOCODE: '/api/v1/geocode',
+    REVERSE_GEOCODE: '/api/v1/geocode/reverse',
   },
 };
 
@@ -449,6 +466,14 @@ export const VALIDATION_RULES = {
     buildingCoverage: { required: true, min: 0, max: 100 },
     floorAreaRatio: { required: true, min: 0, max: 1000 },
     price: { required: false, min: 0 },
+    geoLocation: { required: false },
+  },
+  
+  // ジオコーディングバリデーション
+  GEO: {
+    address: { required: true, minLength: 3, maxLength: 200 },
+    lat: { required: true, min: -90, max: 90 },
+    lng: { required: true, min: -180, max: 180 },
   },
   
   // ボリュームチェックバリデーション

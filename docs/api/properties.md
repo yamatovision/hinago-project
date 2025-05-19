@@ -152,6 +152,11 @@
       "width": 10,
       "depth": 25.05
     },
+    "geoLocation": {
+      "lat": 33.5898,
+      "lng": 130.3986,
+      "formatted_address": "福岡県福岡市中央区大名2-1-1"
+    },
     "createdAt": "2025-03-15T09:30:00Z",
     "updatedAt": "2025-03-15T09:30:00Z"
   }
@@ -846,6 +851,51 @@ Content-Type: multipart/form-data
 }
 ```
 
+### 15. 逆ジオコーディング - GET /api/v1/geocode/reverse
+
+- **認証**: 必須
+- **概要**: 緯度経度情報から住所を取得
+
+#### クエリパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| lat | number | はい | 緯度 (-90〜90) |
+| lng | number | はい | 経度 (-180〜180) |
+
+#### レスポンス
+
+**成功**: 200 OK
+
+```json
+{
+  "success": true,
+  "data": {
+    "lat": 33.5898,
+    "lng": 130.3986,
+    "formatted_address": "福岡県福岡市中央区大名2-1-1",
+    "components": {
+      "prefecture": "福岡県",
+      "city": "福岡市中央区",
+      "town": "大名",
+      "block": "2-1-1"
+    }
+  }
+}
+```
+
+**エラー**: 位置情報が見つからない - 404 Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "LOCATION_NOT_FOUND",
+    "message": "指定された位置情報に対応する住所が見つかりません"
+  }
+}
+```
+
 ## 実装ノート
 
 ### 敷地形状データの扱い
@@ -862,6 +912,83 @@ Content-Type: multipart/form-data
 allowedBuildingArea = area * (buildingCoverage / 100)
 ```
 
+### 地図表示コンポーネントの実装
+
+地図表示コンポーネントは、以下のアプローチで実装します：
+
+1. **マップライブラリの導入**
+   - Google Maps JavaScript API、Mapbox GL JS、またはLeaflet.jsなどのマップライブラリを使用
+   - 適切なAPIキーとライセンス管理を行う
+
+2. **地図コンポーネント実装例（React + Google Maps）**
+
+```jsx
+import { useEffect, useRef } from 'react';
+import { Box } from '@mui/material';
+
+interface MapViewProps {
+  lat: number;
+  lng: number;
+  zoom?: number;
+  mapType?: string;
+  showNearbyFacilities?: boolean;
+}
+
+const MapView = ({ 
+  lat, 
+  lng, 
+  zoom = 15,
+  mapType = 'roadmap',
+  showNearbyFacilities = false 
+}: MapViewProps) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (mapRef.current && lat && lng) {
+      const mapOptions = {
+        center: { lat, lng },
+        zoom,
+        mapTypeId: mapType,
+      };
+      
+      const map = new google.maps.Map(mapRef.current, mapOptions);
+      
+      // 物件位置のマーカー
+      new google.maps.Marker({
+        position: { lat, lng },
+        map,
+        title: '物件位置'
+      });
+      
+      // 周辺施設の表示（オプション）
+      if (showNearbyFacilities) {
+        // 周辺施設APIの呼び出しと表示ロジック
+        // 例: getNearbyPlaces(map, lat, lng, 1000, ['train_station', 'school']);
+      }
+    }
+  }, [lat, lng, zoom, mapType, showNearbyFacilities]);
+
+  return (
+    <Box
+      ref={mapRef}
+      sx={{
+        width: '100%',
+        height: 300,
+        borderRadius: 1,
+        mb: 2
+      }}
+      aria-label="物件位置の地図"
+    />
+  );
+};
+
+export default MapView;
+```
+
+3. **フォーム連携**
+   - PropertyFormコンポーネント内でジオコーディング結果を地図表示に連携
+   - 住所入力時に自動的に位置情報を取得して地図を更新
+
 ### セキュリティ考慮事項
 
 1. **ファイルアップロード**
@@ -873,9 +1000,29 @@ allowedBuildingArea = area * (buildingCoverage / 100)
    - 物件データの更新・削除操作は所有者または管理者のみ実行可能
    - 一般ユーザーは自分が作成した物件のみ更新可能（将来的な拡張）
 
+3. **地図APIセキュリティ**
+   - 地図APIキーはクライアントサイドのみの制限を設定
+   - リファラーとドメイン制限で不正利用を防止
+   - API使用量の監視とクォータ設定
+
 ## 型定義参照
 
 ```typescript
+// 地理座標の型
+export interface GeoLocation {
+  lat: number; // 緯度
+  lng: number; // 経度
+  formatted_address?: string; // フォーマット済み住所
+}
+
+// 地図表示設定の型
+export interface MapViewSettings {
+  zoom: number; // 初期ズームレベル
+  mapType?: string; // 地図種別（通常、航空写真など）
+  showNearbyFacilities?: boolean; // 周辺施設表示フラグ
+  showTraffic?: boolean; // 交通情報表示フラグ
+}
+
 // 物件基本情報
 export interface PropertyBase {
   name: string; // 物件名
@@ -893,6 +1040,7 @@ export interface PropertyBase {
   status?: PropertyStatus; // 物件ステータス
   notes?: string; // 備考・メモ
   shapeData?: PropertyShape; // 敷地形状データ
+  geoLocation?: GeoLocation; // 位置情報（緯度・経度）
 }
 
 // 物件詳細の型（DBモデルに対応）

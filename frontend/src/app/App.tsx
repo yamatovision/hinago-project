@@ -6,6 +6,8 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import LoginPage from '../features/auth/pages/LoginPage';
 import { DashboardPage } from '../features/dashboard/pages';
+import { PropertyRegisterPage, PropertyDetailPage } from '../features/properties/pages';
+import { VolumeCheckPage } from '../features/analysis/pages';
 import ProtectedRoute from '../common/components/ProtectedRoute';
 import { theme } from './theme';
 import { AuthProvider } from '../common/hooks/useAuth';
@@ -32,25 +34,28 @@ const App = () => {
               </ProtectedRoute>
             } />
             
-            {/* 将来的に追加される機能のプレースホルダー */}
-            <Route path="/properties/:id" element={
+            {/* 物件関連ページ */}
+            <Route path="/properties/:propertyId" element={
               <ProtectedRoute>
-                <div>物件詳細ページ（開発中）</div>
+                <PropertyDetailPage />
               </ProtectedRoute>
             } />
             <Route path="/properties/create" element={
               <ProtectedRoute>
-                <div>物件登録ページ（開発中）</div>
+                <PropertyRegisterPage />
               </ProtectedRoute>
             } />
+            {/* 編集ページはモーダルに変更したためリダイレクト */}
             <Route path="/properties/:id/edit" element={
               <ProtectedRoute>
-                <div>物件編集ページ（開発中）</div>
+                <Navigate to="/dashboard" replace />
               </ProtectedRoute>
             } />
+            
+            {/* 分析関連ページ */}
             <Route path="/analysis/volume-check/:id" element={
               <ProtectedRoute>
-                <div>ボリュームチェックページ（開発中）</div>
+                <VolumeCheckPage />
               </ProtectedRoute>
             } />
             <Route path="/analysis/profitability/:id" element={

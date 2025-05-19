@@ -41,7 +41,7 @@ const PropertyRegisterPage = () => {
         setCreatedProperty(result);
         setSuccess(true);
         
-        // ボリュームチェックページへの遷移が要求された場合
+        // 物件詳細ページへの遷移が要求された場合
         if (andNavigate) {
           setTimeout(() => {
             navigate(`/properties/${result.id}`);
@@ -81,6 +81,7 @@ const PropertyRegisterPage = () => {
       <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">物件登録</Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>基本情報を入力後、詳細ページで敷地形状や文書を登録できます</Typography>
         </Box>
 
         <Paper elevation={2} sx={{ p: 3, mb: 4 }}>

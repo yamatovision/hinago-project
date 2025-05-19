@@ -33,8 +33,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import ClearIcon from '@mui/icons-material/Clear';
-import Header from '../../../common/components/Header';
+import Header from '../../../common/components/Header/Header';
 import { getProperties } from '../../properties/api/properties';
+// 編集モーダルは不要になりました
 import { Property, PropertyStatus, ZoneType } from 'shared';
 
 // 物件ステータスの日本語表示とスタイル
@@ -89,6 +90,8 @@ const DashboardPage = () => {
   const [totalProperties, setTotalProperties] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(5);
+  
+  // 編集モーダル状態は不要になりました
   
   // フィルター状態
   const [filters, setFilters] = useState({
@@ -208,10 +211,10 @@ const DashboardPage = () => {
     navigate('/properties/create');
   };
   
-  // 物件編集ページへ遷移
+  // 物件詳細ページへ遷移
   const handleEditProperty = (e: React.MouseEvent, propertyId: string) => {
     e.stopPropagation(); // 行クリックイベントを阻止
-    navigate(`/properties/${propertyId}/edit`);
+    navigate(`/properties/${propertyId}`);
   };
   
   // ボリュームチェックページへ遷移
@@ -229,10 +232,13 @@ const DashboardPage = () => {
   // 総ページ数を計算
   const totalPages = Math.ceil(totalProperties / limit);
   
+  // 編集成功時のハンドラは不要になりました
+  
   return (
     <>
       <Header />
       <Container maxWidth="lg" sx={{ pt: 4, pb: 8 }}>
+        {/* 物件編集モーダルは削除しました */}
         {/* ページタイトルと新規ボタン */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
@@ -427,7 +433,7 @@ const DashboardPage = () => {
                             <CalculateIcon />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="編集">
+                        <Tooltip title="詳細・編集">
                           <IconButton
                             size="small"
                             color="primary"
