@@ -30,7 +30,9 @@ const AnnualFinancialDataSchema = new Schema({
   rentalIncome: { type: Number, required: true },
   operatingExpenses: { type: Number, required: true },
   netOperatingIncome: { type: Number, required: true },
-  accumulatedIncome: { type: Number, required: true }
+  accumulatedIncome: { type: Number, required: true },
+  noi: { type: Number, default: 0 }, // required: trueを削除し、デフォルト値を設定
+  cashFlow: { type: Number, default: 0 } // required: trueを削除し、デフォルト値を設定
 }, { _id: false });
 
 // 収益性試算スキーマ定義
@@ -126,6 +128,12 @@ const ProfitabilitySchema = new Schema<ProfitabilityDocument>(
     annualFinancials: {
       type: [AnnualFinancialDataSchema],
       required: true
+    },
+    
+    // 新規追加: シナリオとの関連付け
+    scenarioId: {
+      type: String,
+      ref: 'Scenario'
     },
     
     userId: {

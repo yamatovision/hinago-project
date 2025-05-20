@@ -2,6 +2,8 @@ import React from 'react';
 import { VolumeCheck } from 'shared';
 import { FloorSelector } from './FloorSelector';
 import { ViewOptions } from './ViewOptions';
+import { ShadowControls } from './ShadowControls';
+import { useThreeStore } from '../ThreeViewer/helpers/useThreeStore';
 
 interface ThreeViewerControlsProps {
   volumeCheck: VolumeCheck | null;
@@ -10,6 +12,9 @@ interface ThreeViewerControlsProps {
 export const ThreeViewerControls: React.FC<ThreeViewerControlsProps> = ({ 
   volumeCheck 
 }) => {
+  // 日影シミュレーションが利用可能かチェック
+  const hasShadowSimulation = volumeCheck?.shadowSimulation !== undefined;
+  
   return (
     <div 
       style={{ 
@@ -24,6 +29,11 @@ export const ThreeViewerControls: React.FC<ThreeViewerControlsProps> = ({
       <ViewOptions />
       
       <FloorSelector volumeCheck={volumeCheck} />
+      
+      {/* 日影シミュレーションコントロール */}
+      {hasShadowSimulation && (
+        <ShadowControls showShadowControls={hasShadowSimulation} />
+      )}
       
       <div style={{ marginTop: '16px', fontSize: '14px', color: '#757575' }}>
         <p style={{ margin: '0 0 4px 0' }}>操作方法:</p>

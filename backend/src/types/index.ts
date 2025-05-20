@@ -72,6 +72,15 @@ export enum ShadowRegulationType {
   NONE = 'none', // 規制なし
 }
 
+// 高度地区の列挙型（追加）
+export enum HeightDistrictType {
+  FIRST_10M = 'first10m',   // 第一種10M高度地区
+  FIRST_15M = 'first15m',   // 第一種15M高度地区
+  SECOND_15M = 'second15m', // 第二種15M高度地区
+  SECOND_20M = 'second20m', // 第二種20M高度地区
+  NONE = 'none',            // 指定なし
+}
+
 // 物件ステータスの列挙型
 export enum PropertyStatus {
   NEW = 'new', // 新規
@@ -113,6 +122,41 @@ export interface PropertyShape {
   sourceFile?: string; // 測量図ファイルのURL
 }
 
+// 地区計画情報（追加）
+export interface DistrictPlanInfo {
+  name: string;                   // 地区計画名
+  wallSetbackDistance?: number;   // 壁面後退距離
+  maxHeight?: number;             // 最高高さ制限
+  specialRegulations?: string[];  // 特別な規制事項
+}
+
+// 日影規制詳細情報（追加）
+export interface ShadowRegulationDetail {
+  measurementHeight: number;  // 測定面の高さ
+  hourRanges: {
+    primary: number;          // 4時間/5時間
+    secondary: number;        // 2.5時間/3時間
+  };
+}
+
+// 日影シミュレーション結果（追加）
+export interface ShadowSimulationResult {
+  isochroneMap?: any;       // 日影等時間線マップ
+  maxHours: number;         // 最大日影時間
+  mediumHours: number;      // 中間部分の日影時間
+  compliant: boolean;       // 適合判定
+}
+
+// 高さ制限の詳細情報（追加）
+export interface RegulationLimits {
+  heightDistrictLimit: number;  // 高度地区による制限
+  slopeLimit: number;           // 斜線制限による制限
+  shadowLimit: number;          // 日影規制による制限
+  absoluteLimit: number;        // 絶対高さ制限
+  districtPlanLimit?: number;   // 地区計画による高さ制限
+  finalLimit: number;           // 最終的な制限値（最小値）
+}
+
 // 物件基本情報
 export interface PropertyBase {
   name: string; // 物件名
@@ -130,6 +174,12 @@ export interface PropertyBase {
   status?: PropertyStatus; // 物件ステータス
   notes?: string; // 備考・メモ
   shapeData?: PropertyShape; // 敷地形状データ
+  
+  // 新規追加フィールド（すべて任意）
+  heightDistrict?: HeightDistrictType;   // 高度地区
+  northBoundaryDistance?: number;        // 北側敷地境界線までの距離
+  districtPlanInfo?: DistrictPlanInfo;   // 地区計画情報
+  shadowRegulationDetail?: ShadowRegulationDetail; // 日影規制詳細
 }
 
 // 物件作成時の型
@@ -177,6 +227,7 @@ export interface BuildingParams {
   floors: number; // 階数
   roadWidth?: number; // 前面道路幅員 (m)
   assetType: AssetType; // アセットタイプ
+  buildingArea?: number; // 建築面積 (m²) - 建築パラメータで指定される場合
 }
 
 // 3Dモデルデータの型
@@ -210,6 +261,10 @@ export interface VolumeCheck extends Timestamps {
   model3dData?: Model3DData; // 3Dモデルデータ
   regulationChecks: RegulationCheck[]; // 法規制チェック結果
   userId?: ID; // 作成したユーザーID
+  
+  // 新規追加フィールド（すべて任意）
+  shadowSimulation?: ShadowSimulationResult; // 日影シミュレーション結果
+  regulationLimits?: RegulationLimits;       // 高さ制限の詳細情報
 }
 
 // 収益性試算パラメータの型
@@ -229,6 +284,8 @@ export interface AnnualFinancialData {
   operatingExpenses: number; // 運営支出 (円)
   netOperatingIncome: number; // 年間純収益 (円)
   accumulatedIncome: number; // 累計収益 (円)
+  noi: number; // 純営業収益 (円)
+  cashFlow: number; // キャッシュフロー (円)
 }
 
 // 収益性試算結果の型
@@ -261,6 +318,7 @@ export interface ProfitabilityResult extends Timestamps {
   // 詳細データ
   annualFinancials: AnnualFinancialData[]; // 年次ごとの財務データ
   
+  scenarioId?: string; // 関連するシナリオID（新規追加：このシナリオIDに所属）
   userId?: ID; // 作成したユーザーID
 }
 
@@ -276,7 +334,7 @@ export interface Scenario extends Timestamps {
   volumeCheckId: ID; // 関連ボリュームチェックID
   name: string; // シナリオ名
   params: ScenarioParams; // シナリオパラメータ
-  profitabilityResult?: ProfitabilityResult; // 収益性試算結果
+  profitabilityResultId?: string; // 収益性試算結果ID（名前を明確化）
   userId?: ID; // 作成したユーザーID
 }
 
@@ -300,6 +358,43 @@ export interface HistoryEntry extends Timestamps {
   userId: ID; // 変更したユーザーID
   action: string; // 実行したアクション
   details: string; // 変更の詳細
+}
+
+/**
+ * =================
+ * レポート関連の型定義
+ * =================
+ */
+
+// レポートタイプの列挙型
+export enum ReportType {
+  VOLUME_CHECK = 'volume-check',    // ボリュームチェックレポート
+  PROFITABILITY = 'profitability',  // 収益性試算レポート
+  COMBINED = 'combined'             // 複合レポート（両方を含む）
+}
+
+// レポート出力形式の列挙型
+export enum ReportFormat {
+  PDF = 'pdf',    // PDF形式
+  CSV = 'csv'     // CSV形式（将来拡張用）
+}
+
+// レポート生成リクエストの型
+export interface ReportGenerateRequest {
+  type: ReportType;                // レポートタイプ
+  format: ReportFormat;            // 出力形式
+  volumeCheckId?: ID;              // ボリュームチェックID（タイプがVOLUME_CHECKまたはCOMBINEDの場合必須）
+  profitabilityId?: ID;            // 収益性試算ID（タイプがPROFITABILITYまたはCOMBINEDの場合必須）
+  includeCharts?: boolean;         // グラフを含めるかどうか（デフォルトtrue）
+  template?: string;               // 使用するテンプレート名（オプション）
+  language?: string;               // レポート言語（デフォルト: ja）
+}
+
+// レポート生成レスポンスの型
+export interface ReportGenerateResponse {
+  reportUrl: string;               // 生成されたレポートのURL
+  fileName: string;                // ファイル名
+  expiresAt?: Date;                // URL有効期限（オプション）
 }
 
 /**
@@ -412,11 +507,16 @@ export const API_PATHS = {
     PROFITABILITY_DETAIL: (profitabilityId: string) => `/api/v1/analysis/profitability/${profitabilityId}`,
     SCENARIOS: '/api/v1/analysis/scenarios',
     SCENARIO: (scenarioId: string) => `/api/v1/analysis/scenarios/${scenarioId}`,
+    // レポート生成関連
+    REPORT: '/api/v1/analysis/report',
+    VOLUME_CHECK_REPORT: (volumeCheckId: string) => `/api/v1/analysis/report/volume-check/${volumeCheckId}`,
+    PROFITABILITY_REPORT: (profitabilityId: string) => `/api/v1/analysis/report/profitability/${profitabilityId}`,
   },
   
   // ジオコーディング関連
   GEO: {
     GEOCODE: '/api/v1/geocode',
+    REVERSE_GEOCODE: '/api/v1/geocode/reverse',
   },
 };
 
@@ -438,4 +538,22 @@ export const FIXED_ADMIN_USER: AuthUser = {
   email: 'higano@gmail.com',
   name: '管理者',
   role: UserRole.ADMIN
+};
+
+/**
+ * =================
+ * バリデーションルール
+ * =================
+ */
+export const VALIDATION_RULES = {
+  // レポート生成バリデーション
+  REPORT: {
+    type: { required: true, enum: Object.values(ReportType) },
+    format: { required: true, enum: Object.values(ReportFormat) },
+    volumeCheckId: { required: false },
+    profitabilityId: { required: false },
+    includeCharts: { required: false, type: 'boolean' },
+    template: { required: false },
+    language: { required: false, enum: ['ja', 'en'] },
+  },
 };

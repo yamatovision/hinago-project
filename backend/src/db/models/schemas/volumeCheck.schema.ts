@@ -7,7 +7,9 @@ import {
   AssetType, 
   FloorData,
   RegulationCheck,
-  Model3DData
+  Model3DData,
+  ShadowSimulationResult,
+  RegulationLimits
 } from '../../../types';
 
 // ボリュームチェックドキュメントインターフェース
@@ -35,6 +37,23 @@ const RegulationCheckSchema = new Schema({
 const Model3DDataSchema = new Schema({
   modelType: { type: String, required: true },
   data: { type: Schema.Types.Mixed, required: true }
+}, { _id: false });
+
+// 日影シミュレーション結果のサブスキーマ（追加）
+const ShadowSimulationResultSchema = new Schema({
+  isochroneMap: { type: Schema.Types.Mixed },
+  maxHours: { type: Number, required: true },
+  mediumHours: { type: Number, required: true },
+  compliant: { type: Boolean, required: true }
+}, { _id: false });
+
+// 高さ制限の詳細情報のサブスキーマ（追加）
+const RegulationLimitsSchema = new Schema({
+  heightDistrictLimit: { type: Number, required: true },
+  slopeLimit: { type: Number, required: true },
+  shadowLimit: { type: Number, required: true },
+  absoluteLimit: { type: Number, required: true },
+  finalLimit: { type: Number, required: true }
 }, { _id: false });
 
 // ボリュームチェックスキーマ定義
@@ -90,6 +109,13 @@ const VolumeCheckSchema = new Schema<VolumeCheckDocument>(
     userId: {
       type: String,
       ref: 'User'
+    },
+    // 新規追加フィールド（すべて任意）
+    shadowSimulation: {
+      type: ShadowSimulationResultSchema
+    },
+    regulationLimits: {
+      type: RegulationLimitsSchema
     }
   },
   {

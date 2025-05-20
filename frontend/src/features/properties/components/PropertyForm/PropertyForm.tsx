@@ -12,7 +12,11 @@ import {
   Collapse,
   InputAdornment,
   Paper,
-  CircularProgress
+  CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -21,13 +25,17 @@ import ApartmentIcon from '@mui/icons-material/Apartment';
 import GavelIcon from '@mui/icons-material/Gavel';
 import DescriptionIcon from '@mui/icons-material/Description';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { 
   PropertyCreateData, 
   ZoneType, 
   FireZoneType, 
   ShadowRegulationType, 
   PropertyStatus,
-  VALIDATION_RULES
+  VALIDATION_RULES,
+  HeightDistrictType,
+  DistrictPlanInfo,
+  ShadowRegulationDetail
 } from 'shared';
 import { getGeocode } from '../../api/properties';
 import { PropertyMap } from '../Map';
@@ -614,6 +622,174 @@ const PropertyForm = ({
                   />
                 </Grid>
               </Grid>
+
+              <Divider sx={{ my: 3 }} />
+
+              {/* 精密化された法規制情報 */}
+              <Accordion>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography>詳細法規制情報</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Grid container spacing={2}>
+                    {/* 高度地区 */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        id="height-district"
+                        name="heightDistrict"
+                        select
+                        label="高度地区"
+                        value={values.heightDistrict || HeightDistrictType.NONE}
+                        onChange={(e) => {
+                          setValues({
+                            ...values,
+                            heightDistrict: e.target.value as HeightDistrictType
+                          });
+                        }}
+                        disabled={isSubmitting}
+                      >
+                        <MenuItem value={HeightDistrictType.NONE}>指定なし</MenuItem>
+                        <MenuItem value={HeightDistrictType.FIRST_10M}>第一種10M高度地区</MenuItem>
+                        <MenuItem value={HeightDistrictType.FIRST_15M}>第一種15M高度地区</MenuItem>
+                        <MenuItem value={HeightDistrictType.SECOND_15M}>第二種15M高度地区</MenuItem>
+                        <MenuItem value={HeightDistrictType.SECOND_20M}>第二種20M高度地区</MenuItem>
+                      </TextField>
+                    </Grid>
+                    
+                    {/* 北側境界線距離 */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        id="north-boundary-distance"
+                        name="northBoundaryDistance"
+                        label="北側境界線までの距離"
+                        type="number"
+                        InputProps={{ 
+                          inputProps: { min: 0, step: 0.1 },
+                          endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                        }}
+                        value={values.northBoundaryDistance || ''}
+                        onChange={(e) => {
+                          setValues({
+                            ...values,
+                            northBoundaryDistance: e.target.value ? parseFloat(e.target.value) : undefined
+                          });
+                        }}
+                        disabled={isSubmitting}
+                        helperText="北側斜線制限計算に使用します"
+                      />
+                    </Grid>
+
+                    {/* 日影規制詳細 - 測定面の高さ */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        id="shadow-measurement-height"
+                        name="shadowRegulationDetail.measurementHeight"
+                        label="日影規制測定面の高さ"
+                        type="number"
+                        InputProps={{ 
+                          inputProps: { min: 0, step: 0.1 },
+                          endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                        }}
+                        value={values.shadowRegulationDetail?.measurementHeight || '4'}
+                        onChange={(e) => {
+                          const value = e.target.value ? parseFloat(e.target.value) : 4;
+                          const shadowRegulationDetail = { 
+                            ...values.shadowRegulationDetail || {
+                              hourRanges: { primary: 4, secondary: 2.5 }
+                            }, 
+                            measurementHeight: value 
+                          };
+                          setValues({
+                            ...values,
+                            shadowRegulationDetail
+                          });
+                        }}
+                        disabled={isSubmitting || values.shadowRegulation === ShadowRegulationType.NONE}
+                      />
+                    </Grid>
+
+                    {/* 地区計画名 */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        id="district-plan-name"
+                        name="districtPlanInfo.name"
+                        label="地区計画名"
+                        value={values.districtPlanInfo?.name || ''}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          const districtPlanInfo = { ...values.districtPlanInfo || {}, name };
+                          setValues({
+                            ...values,
+                            districtPlanInfo
+                          });
+                        }}
+                        disabled={isSubmitting}
+                        placeholder="例: 福岡市○○地区地区計画"
+                      />
+                    </Grid>
+                    
+                    {/* 壁面後退距離 */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        id="wall-setback-distance"
+                        name="districtPlanInfo.wallSetbackDistance"
+                        label="壁面後退距離"
+                        type="number"
+                        InputProps={{ 
+                          inputProps: { min: 0, step: 0.1 },
+                          endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                        }}
+                        value={values.districtPlanInfo?.wallSetbackDistance || ''}
+                        onChange={(e) => {
+                          const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                          const districtPlanInfo = { 
+                            ...values.districtPlanInfo || { name: '' }, 
+                            wallSetbackDistance: value 
+                          };
+                          setValues({
+                            ...values,
+                            districtPlanInfo
+                          });
+                        }}
+                        disabled={isSubmitting}
+                      />
+                    </Grid>
+                    
+                    {/* 地区計画最高高さ */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        id="district-plan-max-height"
+                        name="districtPlanInfo.maxHeight"
+                        label="地区計画高さ制限"
+                        type="number"
+                        InputProps={{ 
+                          inputProps: { min: 0, step: 0.1 },
+                          endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                        }}
+                        value={values.districtPlanInfo?.maxHeight || ''}
+                        onChange={(e) => {
+                          const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                          const districtPlanInfo = { 
+                            ...values.districtPlanInfo || { name: '' }, 
+                            maxHeight: value 
+                          };
+                          setValues({
+                            ...values,
+                            districtPlanInfo
+                          });
+                        }}
+                        disabled={isSubmitting}
+                      />
+                    </Grid>
+                  </Grid>
+                </AccordionDetails>
+              </Accordion>
             </Box>
           </Collapse>
         </Box>

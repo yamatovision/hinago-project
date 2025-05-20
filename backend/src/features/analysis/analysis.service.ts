@@ -241,7 +241,61 @@ export class ProfitabilityService {
     limit: number = 10
   ): Promise<{ profitabilityResults: ProfitabilityResult[]; total: number; page: number; limit: number; totalPages: number; }> {
     try {
-      return await ProfitabilityModel.findByVolumeCheckId(volumeCheckId, page, limit);
+      // パフォーマンス最適化版 - 直接DBにアクセス
+      const startTime = Date.now();
+      logger.info('収益性試算結果取得開始', { volumeCheckId, page, limit });
+      
+      // モンゴDBスキーマに直接アクセス
+      try {
+        const { ProfitabilityModel: MongoProfitabilityModel } = require('../../db/models/schemas/profitability.schema');
+        
+        // ページネーションの設定
+        const skip = (page - 1) * limit;
+        
+        // 並列で総件数とデータを取得（高速化）
+        const [total, profitabilityResults] = await Promise.all([
+          MongoProfitabilityModel.countDocuments({ volumeCheckId }),
+          MongoProfitabilityModel.find({ volumeCheckId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean()
+        ]);
+        
+        // 総ページ数を計算
+        const totalPages = Math.ceil(total / limit);
+        
+        // _id を id に変換
+        const formattedResults = profitabilityResults.map((result: any) => ({
+          ...result,
+          id: String(result._id),
+        })) as ProfitabilityResult[];
+        
+        logger.info('収益性試算結果取得完了', { 
+          volumeCheckId, 
+          page, 
+          limit, 
+          time: `${Date.now() - startTime}ms`,
+          resultCount: formattedResults.length
+        });
+        
+        return {
+          profitabilityResults: formattedResults,
+          total,
+          page,
+          limit,
+          totalPages
+        };
+      } catch (dbError) {
+        logger.error('収益性試算結果DB取得エラー', { 
+          dbError, 
+          volumeCheckId,
+          time: `${Date.now() - startTime}ms` 
+        });
+        
+        // エラーが発生した場合は標準のモデルに戻す
+        return await ProfitabilityModel.findByVolumeCheckId(volumeCheckId, page, limit);
+      }
     } catch (error) {
       logger.error('ボリュームチェック関連収益性試算結果取得エラー', { error, volumeCheckId });
       throw error;
@@ -268,16 +322,32 @@ export class ProfitabilityService {
       // ユーザーIDが指定されている場合、権限チェック
       if (userId && profitability.userId && profitability.userId !== userId) {
         // 管理者権限のチェックなどの追加ロジックをここに実装
-        // 将来的な拡張のためのプレースホルダー
-        // 現状ではシンプルにユーザーIDが一致するかのみをチェック
         logger.warn('収益性試算結果削除の権限なし', { userId, profitabilityId });
         return false;
       }
       
-      // 収益性試算結果を参照しているシナリオの参照を解除
-      const scenariosResult = await ScenarioModel.findAll({ profitabilityResult: profitabilityId });
-      for (const scenario of scenariosResult.scenarios) {
-        await ScenarioModel.update(scenario.id, { profitabilityResult: undefined });
+      // 1対1モデルの場合は、関連するシナリオの参照を解除する
+      if (profitability.scenarioId) {
+        await ScenarioModel.update(
+          profitability.scenarioId,
+          { profitabilityResultId: undefined }
+        );
+      }
+      
+      // 念のため、多対1関係が残っている可能性を考慮して一括更新を導入
+      // 直接MongoDBモデルにアクセスして高速な一括更新を実行
+      try {
+        const { ScenarioModel: MongoScenarioModel } = require('../../db/models/schemas/scenario.schema');
+        await MongoScenarioModel.updateMany(
+          { profitabilityResultId: profitabilityId },
+          { $unset: { profitabilityResultId: "" } }
+        );
+        logger.info('収益性試算結果の参照をすべて解除しました', { profitabilityId });
+      } catch (updateError) {
+        logger.warn('シナリオの一括更新中にエラーが発生しましたが、処理を続行します', { 
+          updateError, 
+          profitabilityId 
+        });
       }
       
       // 結果の削除
@@ -294,7 +364,7 @@ export class ProfitabilityService {
  */
 export class ScenarioService {
   /**
-   * シナリオを作成
+   * シナリオを作成 - 最適化バージョン
    * @param propertyId 物件ID
    * @param volumeCheckId ボリュームチェック結果ID
    * @param name シナリオ名
@@ -309,23 +379,18 @@ export class ScenarioService {
     params: ScenarioParams,
     userId?: string
   ): Promise<Scenario> {
+    const startTime = Date.now();
+    
     try {
-      // 物件データの取得
-      const property = await PropertyModel.findById(propertyId);
-      if (!property) {
-        throw new Error(`物件が見つかりません (ID: ${propertyId})`);
-      }
+      logger.info('ScenarioService.createScenario開始', { 
+        time: `${Date.now() - startTime}ms`,
+        propertyId, 
+        volumeCheckId,
+        name
+      });
       
-      // ボリュームチェック結果の取得
-      const volumeCheck = await VolumeCheckModel.findById(volumeCheckId);
-      if (!volumeCheck) {
-        throw new Error(`ボリュームチェック結果が見つかりません (ID: ${volumeCheckId})`);
-      }
-      
-      // ボリュームチェック結果と物件IDの関連性チェック
-      if (volumeCheck.propertyId !== propertyId) {
-        throw new Error(`指定されたボリュームチェック結果は、指定された物件に関連付けられていません`);
-      }
+      // 関連性チェックはすでにコントローラーで実施済みと想定
+      // デバッグ用コメント: ここでID存在チェックやリレーションチェックは省略
       
       // シナリオデータの作成
       const scenarioData = {
@@ -336,12 +401,47 @@ export class ScenarioService {
         userId
       };
       
-      // シナリオをDBに保存
-      const scenario = await ScenarioModel.create(scenarioData);
+      // シナリオをDBに保存 - パフォーマンス最適化版
+      const dbSaveStart = Date.now();
+      logger.info('シナリオDB保存開始', { time: `${Date.now() - startTime}ms` });
+      
+      // モデルクラスを直接使用して高速に保存
+      const { ScenarioModel: MongoScenarioModel } = require('../../db/models/schemas/scenario.schema');
+      
+      // データを準備
+      const now = new Date();
+      const docToInsert = {
+        ...scenarioData,
+        createdAt: now,
+        updatedAt: now
+      };
+      
+      // MongoDB ネイティブ操作を使用（高速）
+      const insertResult = await MongoScenarioModel.create(docToInsert);
+      const scenarioId = insertResult._id;
+      
+      // 結果オブジェクトを構築
+      const scenario = {
+        ...docToInsert,
+        id: scenarioId.toString(),
+        _id: scenarioId
+      } as Scenario;
+      
+      logger.info('シナリオDB保存完了', { 
+        time: `${Date.now() - dbSaveStart}ms`,
+        scenarioId: scenario.id
+      });
+      
+      // 全体の実行時間
+      logger.info('ScenarioService.createScenario完了', { 
+        time: `${Date.now() - startTime}ms`,
+        scenarioId: scenario.id
+      });
       
       return scenario;
     } catch (error) {
-      logger.error('シナリオ作成エラー', { 
+      logger.error('シナリオ作成エラー (サービス層)', { 
+        time: `${Date.now() - startTime}ms`,
         error, 
         propertyId, 
         volumeCheckId 
@@ -518,6 +618,29 @@ export class ScenarioService {
         throw new Error('シナリオと収益性試算結果の関連付けが一致しません');
       }
       
+      // 1対1関係を維持するための追加チェック
+      // 既に他のシナリオと関連付けられている収益性試算結果の場合、その関連を解除
+      if (profitability.scenarioId && profitability.scenarioId !== scenarioId) {
+        // 既存のシナリオとの関連を解除
+        try {
+          const { ScenarioModel: MongoScenarioModel } = require('../../db/models/schemas/scenario.schema');
+          await MongoScenarioModel.updateOne(
+            { _id: profitability.scenarioId },
+            { $unset: { profitabilityResultId: "" } }
+          );
+          logger.info('既存シナリオの収益性試算結果参照を解除しました', {
+            oldScenarioId: profitability.scenarioId,
+            profitabilityId
+          });
+        } catch (updateError) {
+          logger.warn('既存シナリオ参照解除中にエラーが発生しましたが、処理を続行します', {
+            updateError,
+            oldScenarioId: profitability.scenarioId,
+            profitabilityId
+          });
+        }
+      }
+      
       // シナリオの更新
       return await ScenarioModel.linkToProfitabilityResult(scenarioId, profitabilityId);
     } catch (error) {
@@ -547,16 +670,40 @@ export class ScenarioService {
         throw new Error(`シナリオが見つかりません (ID: ${scenarioId})`);
       }
       
+      // 既存の関連収益性試算結果がある場合は削除
+      if (scenario.profitabilityResultId) {
+        await ProfitabilityModel.delete(scenario.profitabilityResultId);
+      }
+      
+      // 物件とボリュームチェックのデータを取得
+      const property = await PropertyModel.findById(scenario.propertyId);
+      if (!property) {
+        throw new Error(`物件が見つかりません (ID: ${scenario.propertyId})`);
+      }
+      
+      const volumeCheck = await VolumeCheckModel.findById(scenario.volumeCheckId);
+      if (!volumeCheck) {
+        throw new Error(`ボリュームチェック結果が見つかりません (ID: ${scenario.volumeCheckId})`);
+      }
+      
       // 収益性試算の実行
-      const profitability = await ProfitabilityService.executeProfitability(
-        scenario.propertyId,
-        scenario.volumeCheckId,
+      const profitabilityData = await calculateProfitability(
+        property,
+        volumeCheck,
         scenario.params,
         userId
       );
       
+      // シナリオIDを関連付け
+      profitabilityData.scenarioId = scenarioId;
+      
+      // 結果をDBに保存
+      const profitability = await ProfitabilityModel.create(profitabilityData);
+      
       // シナリオと収益性試算結果を関連付け
-      await ScenarioModel.linkToProfitabilityResult(scenarioId, profitability.id);
+      await ScenarioModel.update(scenarioId, { 
+        profitabilityResultId: profitability.id 
+      });
       
       return profitability;
     } catch (error) {

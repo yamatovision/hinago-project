@@ -83,6 +83,7 @@ API側では、ボリュームチェックの実行、結果取得、削除の�
 | 8 | シナリオ管理 | 複数シナリオの作成と比較 | 収益性試算 | 中 | 32h | 完了 |
 | 9 | レポート生成 | PDF出力と結果共有 | ボリュームチェック、収益性試算 | 中 | 24h | 未着手 |
 
+
 ### 5.2 API実装タスクリスト
 
 データの依存関係に基づき、以下の順序でAPI実装を進めます：
@@ -110,17 +111,17 @@ API側では、ボリュームチェックの実行、結果取得、削除の�
 | **追加** | `/api/v1/analysis/volume-check/property/{propertyId}` | GET | 物件関連ボリュームチェック一覧取得 | 必要 | ボリュームチェックページ | [x] | [x] | [ ] |
 | **追加** | `/api/v1/analysis/volume-check/{id}` | DELETE | ボリュームチェック結果削除 | 必要 | ボリュームチェックページ | [x] | [x] | [ ] |
 | **6.1** | エンドポイントなし（フロントエンド処理） | - | 3Dモデル表示 | - | ボリュームチェックページ | [x] | [x] | [x] |
-| **7.1** | `/api/v1/analysis/profitability` | POST | 収益性試算実行 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **7.2** | `/api/v1/analysis/profitability/{id}` | GET | 収益性試算結果取得 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **追加** | `/api/v1/analysis/profitability/property/{propertyId}` | GET | 物件関連収益性試算一覧取得 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **追加** | `/api/v1/analysis/profitability/volume-check/{volumeCheckId}` | GET | ボリュームチェック関連収益性試算一覧取得 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **追加** | `/api/v1/analysis/profitability/{id}` | DELETE | 収益性試算結果削除 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **8.1** | `/api/v1/analysis/scenarios` | POST | シナリオ作成 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **8.2** | `/api/v1/analysis/scenarios` | GET | シナリオ一覧取得 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **8.3** | `/api/v1/analysis/scenarios/{id}` | GET | シナリオ詳細取得 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **8.4** | `/api/v1/analysis/scenarios/{id}` | PUT | シナリオ更新 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **8.5** | `/api/v1/analysis/scenarios/{id}` | DELETE | シナリオ削除 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
-| **8.6** | `/api/v1/analysis/scenarios/{id}/profitability` | POST | シナリオからの収益性試算実行 | 必要 | 収益性試算ページ | [x] | [ ] | [ ] |
+| **7.1** | `/api/v1/analysis/profitability` | POST | 収益性試算実行 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **7.2** | `/api/v1/analysis/profitability/{id}` | GET | 収益性試算結果取得 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **追加** | `/api/v1/analysis/profitability/property/{propertyId}` | GET | 物件関連収益性試算一覧取得 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **追加** | `/api/v1/analysis/profitability/volume-check/{volumeCheckId}` | GET | ボリュームチェック関連収益性試算一覧取得 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **追加** | `/api/v1/analysis/profitability/{id}` | DELETE | 収益性試算結果削除 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **8.1** | `/api/v1/analysis/scenarios` | POST | シナリオ作成 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **8.2** | `/api/v1/analysis/scenarios` | GET | シナリオ一覧取得 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **8.3** | `/api/v1/analysis/scenarios/{id}` | GET | シナリオ詳細取得 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **8.4** | `/api/v1/analysis/scenarios/{id}` | PUT | シナリオ更新 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **8.5** | `/api/v1/analysis/scenarios/{id}` | DELETE | シナリオ削除 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
+| **8.6** | `/api/v1/analysis/scenarios/{id}/profitability` | POST | シナリオからの収益性試算実行 | 必要 | 収益性試算ページ | [x] | [x] | [ ] |
 | **9.1** | エンドポイントなし（フロントエンド処理） | - | PDF出力 | - | ボリュームチェック・収益性試算ページ | [ ] | [ ] | [ ] |
 
 このタスクリストは、バックエンド実装、テスト通過、フロントエンド実装の進捗を追跡するために使用します。各タスクの完了時にはチェックボックスにチェックを入れて進捗を可視化します。

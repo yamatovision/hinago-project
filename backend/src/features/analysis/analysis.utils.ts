@@ -11,10 +11,24 @@ import {
   AssetType,
   FinancialParams,
   ProfitabilityResult,
-  AnnualFinancialData
+  AnnualFinancialData,
+  RegulationLimits,
+  ShadowSimulationResult,
+  ShadowRegulationType,
+  ZoneType
 } from '../../types';
 import { logger } from '../../common/utils';
 import { PropertyModel, VolumeCheckModel } from '../../db/models';
+import { 
+  calculateHeightDistrictLimit, 
+  calculateDetailedSlopeLimit, 
+  calculateFinalHeightLimit,
+  getHeightLimitByZone,
+  adjustBuildingParamsForDistrictPlan,
+  calculateShadowRegulationHeight,
+  simulateShadow,
+  generateBuildingShape
+} from './regulation';
 
 /**
  * 建築可能ボリュームの計算
@@ -32,24 +46,58 @@ export async function calculateVolumeCheck(
   userId?: string
 ): Promise<Omit<VolumeCheck, 'id' | 'createdAt' | 'updatedAt'>> {
   try {
+    // 地区計画による建築パラメータの調整
+    const adjustedParams = adjustBuildingParamsForDistrictPlan(property, buildingParams);
+    
     // 建築面積の計算（許容建築面積か敷地面積×建蔽率の低い方）
     const allowedBuildingArea = property.allowedBuildingArea || 
       (property.area * property.buildingCoverage / 100);
       
     // 前面道路幅員が設定されている場合、それを使用
-    const roadWidth = buildingParams.roadWidth || property.roadWidth || 4; // デフォルト4m
+    const roadWidth = adjustedParams.roadWidth || property.roadWidth || 4; // デフォルト4m
     
-    // 高さ制限の計算（絶対高さ制限と斜線制限から厳しい方）
+    // 各種高さ制限の計算
+    // 1. 絶対高さ制限（用途地域または指定値）
     const absoluteHeightLimit = property.heightLimit || getHeightLimitByZone(property.zoneType);
-    const slopedHeightLimit = calculateSlopedHeightLimit(roadWidth, property);
-    const heightLimit = Math.min(absoluteHeightLimit, slopedHeightLimit);
+    
+    // 2. 斜線制限による高さ制限
+    // ビルディングパラメータから道路幅員を取得して渡す
+    const slopedHeightLimit = calculateDetailedSlopeLimit(property, adjustedParams.roadWidth);
+    
+    // 3. 高度地区による高さ制限
+    const heightDistrictLimit = calculateHeightDistrictLimit(property);
+    
+    // 4. 日影規制による高さ制限
+    const shadowLimit = calculateShadowRegulationHeight(property, adjustedParams);
+    
+    // 地区計画による高さ制限を追加
+    const districtPlanHeightLimit = property.districtPlanInfo?.maxHeight || Infinity;
+    
+    // 最終的な高さ制限（最も厳しい値を採用）
+    const heightLimit = calculateFinalHeightLimit([
+      absoluteHeightLimit, 
+      slopedHeightLimit, 
+      heightDistrictLimit, 
+      shadowLimit,
+      districtPlanHeightLimit // 地区計画による高さ制限を追加
+    ]);
+    
+    // 高さ制限の詳細情報
+    const regulationLimits: RegulationLimits = {
+      heightDistrictLimit,
+      slopeLimit: slopedHeightLimit,
+      shadowLimit,
+      absoluteLimit: absoluteHeightLimit,
+      districtPlanLimit: districtPlanHeightLimit, // 地区計画制限を追加
+      finalLimit: heightLimit
+    };
     
     // 階高に基づく最大階数の計算
-    const maxFloorsByHeight = Math.floor(heightLimit / buildingParams.floorHeight);
-    const maxFloors = Math.min(maxFloorsByHeight, buildingParams.floors);
+    const maxFloorsByHeight = Math.floor(heightLimit / adjustedParams.floorHeight);
+    const maxFloors = Math.min(maxFloorsByHeight, adjustedParams.floors);
     
     // 建物高さの計算
-    const buildingHeight = maxFloors * buildingParams.floorHeight;
+    const buildingHeight = maxFloors * adjustedParams.floorHeight;
     
     // 延床面積の計算
     const totalFloorArea = allowedBuildingArea * maxFloors;
@@ -65,7 +113,7 @@ export async function calculateVolumeCheck(
     const floorBreakdown = generateFloorBreakdown(
       maxFloors, 
       finalTotalFloorArea, 
-      buildingParams.commonAreaRatio
+      adjustedParams.commonAreaRatio
     );
     
     // 法規制チェック結果の生成
@@ -85,10 +133,63 @@ export async function calculateVolumeCheck(
       buildingHeight
     );
     
+    // 日影シミュレーション結果の生成
+    let shadowSimulation: ShadowSimulationResult | undefined;
+    
+    // 日影規制が存在し、敷地形状がある場合のみシミュレーション実行
+    if (property.shadowRegulation && 
+        property.shadowRegulation !== ShadowRegulationType.NONE && 
+        property.shapeData?.points && 
+        property.shapeData.points.length >= 3) {
+      try {
+        // フロア高さを計算
+        const floorHeight = adjustedParams.floorHeight || 3.0;
+        
+        // 建物形状を生成
+        const buildingShape = generateBuildingShape(property, {
+          floorHeight,
+          floors: maxFloors,
+          assetType: adjustedParams.assetType,
+          commonAreaRatio: adjustedParams.commonAreaRatio,
+          height: buildingHeight
+        });
+        
+        // 日影規制詳細を取得（デフォルト値は関数内で自動設定）
+        const measurementHeight = property.shadowRegulationDetail?.measurementHeight || 
+                                (property.zoneType && [
+                                  ZoneType.CATEGORY1, ZoneType.CATEGORY2
+                                ].includes(property.zoneType) ? 1.5 : 4.0);
+        
+        // 日影シミュレーション実行
+        shadowSimulation = simulateShadow(
+          property,
+          buildingShape,
+          measurementHeight
+        );
+        
+        // 日影規制チェック項目を更新
+        if (shadowSimulation) {
+          // 既存の日影規制チェックを探す
+          const shadowCheckIndex = regulationChecks.findIndex(check => check.name === '日影規制');
+          if (shadowCheckIndex !== -1) {
+            // 既存のチェックを更新
+            regulationChecks[shadowCheckIndex] = {
+              name: '日影規制',
+              regulationValue: property.shadowRegulation === ShadowRegulationType.TYPE1 ? '4h/2.5h' : '5h/3h',
+              plannedValue: `最大${shadowSimulation.maxHours.toFixed(1)}h`,
+              compliant: shadowSimulation.compliant
+            };
+          }
+        }
+      } catch (error) {
+        logger.error('日影シミュレーションエラー', { error, propertyId: property.id });
+      }
+    }
+    
     // 結果の生成
     return {
       propertyId: property.id,
-      assetType: buildingParams.assetType,
+      assetType: adjustedParams.assetType,
       buildingArea: allowedBuildingArea,
       totalFloorArea: finalTotalFloorArea,
       buildingHeight,
@@ -97,6 +198,8 @@ export async function calculateVolumeCheck(
       floorBreakdown,
       regulationChecks,
       model3dData,
+      regulationLimits, // 高さ制限の詳細情報
+      shadowSimulation, // 日影シミュレーション結果
       userId
     };
   } catch (error) {
@@ -244,13 +347,22 @@ function generateAnnualFinancials(
     // 累計収益
     accumulatedIncome += netOperatingIncome;
     
+    // NOI（Net Operating Income）- 同じ値を使用
+    const noi = netOperatingIncome;
+    
+    // キャッシュフロー - 単純化のため純収益と同じ値を使用
+    // 実際のアプリケーションでは、この計算はより複雑になる可能性があります
+    const cashFlow = netOperatingIncome;
+    
     // データ追加
     annualFinancials.push({
       year,
       rentalIncome,
       operatingExpenses,
       netOperatingIncome,
-      accumulatedIncome
+      accumulatedIncome,
+      noi,
+      cashFlow
     });
   }
   
@@ -367,69 +479,6 @@ function calculateNPV(
 }
 
 /**
- * 用途地域による高さ制限の取得
- * @param zoneType 用途地域
- * @returns 高さ制限（m）
- */
-function getHeightLimitByZone(zoneType: string): number {
-  // 用途地域ごとの高さ制限（福岡市の一般的な値）
-  // 実際には地区計画や高度地区によって異なる場合がある
-  switch (zoneType) {
-    case 'category1': // 第一種低層住居専用地域
-    case 'category2': // 第二種低層住居専用地域
-      return 10; // 例: 10m
-    case 'category3': // 第一種中高層住居専用地域
-    case 'category4': // 第二種中高層住居専用地域
-      return 20; // 例: 20m
-    case 'category5': // 第一種住居地域
-    case 'category6': // 第二種住居地域
-    case 'category7': // 準住居地域
-      return 31; // 例: 31m
-    case 'category8': // 近隣商業地域
-      return 31; // 例: 31m
-    case 'category9': // 商業地域
-      return 45; // 例: 45m
-    case 'category10': // 準工業地域
-    case 'category11': // 工業地域
-    case 'category12': // 工業専用地域
-      return 31; // 例: 31m
-    default:
-      return 31; // デフォルト: 31m
-  }
-}
-
-/**
- * 斜線制限による高さ制限の計算
- * @param roadWidth 前面道路幅員
- * @param property 物件データ
- * @returns 高さ制限（m）
- */
-function calculateSlopedHeightLimit(roadWidth: number, property: Property): number {
-  // 用途地域ごとの道路斜線制限の勾配
-  let slope = 1.5; // デフォルト: 1.5
-  
-  // 用途地域に応じた勾配の調整
-  switch (property.zoneType) {
-    case 'category9': // 商業地域
-      slope = 2.0;
-      break;
-    case 'category8': // 近隣商業地域
-      slope = 1.75;
-      break;
-    case 'category1': // 第一種低層住居専用地域
-    case 'category2': // 第二種低層住居専用地域
-      slope = 1.25;
-      break;
-    default:
-      slope = 1.5;
-  }
-  
-  // 道路斜線制限による高さ制限 = 道路幅員 × 勾配
-  // 実際の計算はより複雑（セットバック、北側斜線など）だが、簡略化
-  return roadWidth * slope;
-}
-
-/**
  * 階別データの生成
  * @param floors 階数
  * @param totalFloorArea 総延床面積
@@ -504,19 +553,55 @@ function generateRegulationChecks(
   // 高さ制限チェック
   regulationChecks.push({
     name: '高さ制限',
-    regulationValue: `${heightLimit.toFixed(1)}m`,
+    regulationValue: heightLimit === Infinity ? '制限なし' : `${heightLimit.toFixed(1)}m`,
     plannedValue: `${buildingHeight.toFixed(1)}m`,
-    compliant: buildingHeight <= heightLimit
+    compliant: buildingHeight <= heightLimit || heightLimit === Infinity
   });
   
-  // 日影規制チェック（簡略化）
-  regulationChecks.push({
-    name: '日影規制',
-    regulationValue: property.shadowRegulation === 'none' ? 'なし' : 
-                     property.shadowRegulation === 'type1' ? '4h/2.5h' : '5h/3h',
-    plannedValue: '適合',
-    compliant: true // 簡略化のため常に適合としている
-  });
+  // 高度地区チェック
+  if (property.heightDistrict) {
+    const heightDistrictName = property.heightDistrict.includes('first') ? '第一種' : '第二種';
+    const heightValue = property.heightDistrict.includes('10M') ? '10m' : 
+                       property.heightDistrict.includes('15M') ? '15m' : 
+                       property.heightDistrict.includes('20M') ? '20m' : '';
+    
+    regulationChecks.push({
+      name: '高度地区',
+      regulationValue: `${heightDistrictName}${heightValue}高度地区`,
+      plannedValue: `${buildingHeight.toFixed(1)}m`,
+      compliant: true // 既に上位の高さ制限チェックで検証済み
+    });
+  }
+  
+  // 地区計画チェック
+  if (property.districtPlanInfo && property.districtPlanInfo.maxHeight) {
+    regulationChecks.push({
+      name: '地区計画高さ制限',
+      regulationValue: `${property.districtPlanInfo.maxHeight.toFixed(1)}m`,
+      plannedValue: `${buildingHeight.toFixed(1)}m`,
+      compliant: buildingHeight <= property.districtPlanInfo.maxHeight
+    });
+  }
+  
+  // 日影規制チェック
+  // 日影シミュレーション情報がない場合は簡易的な判定
+  if (property.shadowRegulation === ShadowRegulationType.NONE) {
+    // 日影規制がない場合
+    regulationChecks.push({
+      name: '日影規制',
+      regulationValue: 'なし',
+      plannedValue: '適用なし',
+      compliant: true
+    });
+  } else {
+    // 日影規制がある場合（シミュレーション結果はない時点では不明）
+    regulationChecks.push({
+      name: '日影規制',
+      regulationValue: property.shadowRegulation === ShadowRegulationType.TYPE1 ? '4h/2.5h' : '5h/3h',
+      plannedValue: '制限あり',
+      compliant: true // 一時的に適合とする（後でシミュレーション結果で更新）
+    });
+  }
   
   return regulationChecks;
 }

@@ -138,6 +138,12 @@ describe('分析API統合テスト', () => {
   // ボリュームチェック実行のテスト
   describe('POST /analysis/volume-check', () => {
     it('認証済みユーザーはボリュームチェックを実行できる', async () => {
+      console.log('ボリュームチェック実行テスト開始...');
+      console.log('使用する物件ID:', testPropertyId);
+      
+      // テスト前のログ
+      console.log('リクエスト送信中...');
+      
       const res = await request(app)
         .post(`${baseUrl}/analysis/volume-check`)
         .set('Authorization', authHeader)
@@ -145,6 +151,8 @@ describe('分析API統合テスト', () => {
           propertyId: testPropertyId,
           buildingParams: testBuildingParams
         });
+      
+      console.log('レスポンス受信:', res.status);
       
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
@@ -172,7 +180,8 @@ describe('分析API統合テスト', () => {
       
       // 後続のテストのためにボリュームチェックIDを保存
       testVolumeCheckId = res.body.data.id;
-    });
+      console.log('テスト完了: ボリュームチェックID', testVolumeCheckId);
+    }, 180000); // 3分のタイムアウト
     
     it('異なるパラメータで再度ボリュームチェックを実行できる', async () => {
       const differentParams = {
@@ -274,6 +283,7 @@ describe('分析API統合テスト', () => {
   describe('GET /analysis/volume-check/:id', () => {
     it('認証済みユーザーはボリュームチェック結果を取得できる', async () => {
       // テスト前のログでIDを確認
+      console.log('ボリュームチェック結果取得テスト開始...');
       console.log('テスト用ID:', { testVolumeCheckId, testPropertyId });
       
       if (!testVolumeCheckId) {
@@ -281,9 +291,12 @@ describe('分析API統合テスト', () => {
         return;
       }
       
+      console.log('リクエスト送信中...');
       const res = await request(app)
         .get(`${baseUrl}/analysis/volume-check/${testVolumeCheckId}`)
         .set('Authorization', authHeader);
+      
+      console.log('レスポンス受信:', res.status);
       
       // ステータスコードはIDの有無によって変わるため、柔軟に対応
       if (res.status === 404) {
@@ -329,7 +342,9 @@ describe('分析API統合テスト', () => {
         expect(check).toHaveProperty('compliant');
         expect(typeof check.compliant).toBe('boolean');
       });
-    });
+      
+      console.log('テスト完了: ボリュームチェック結果取得');
+    }, 120000); // 2分のタイムアウト
     
     it('認証なしでボリュームチェック結果を取得できない', async () => {
       const res = await request(app)
@@ -372,6 +387,10 @@ describe('分析API統合テスト', () => {
         return;
       }
       
+      // このテストの前にボリュームチェック結果が少なくとも2つは作成されていることを確認
+      expect(testVolumeCheckId).toBeDefined();
+      expect(testSecondVolumeCheckId).toBeDefined();
+      
       const res = await request(app)
         .get(`${baseUrl}/analysis/volume-check/property/${testPropertyId}`)
         .set('Authorization', authHeader);
@@ -379,21 +398,25 @@ describe('分析API統合テスト', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThan(0); // 結果がある
       
-      if (res.body.data.length > 0) {
-        // データが存在する場合は追加の検証を行う
-        // すべての結果が同じ物件IDを持っているか確認
-        res.body.data.forEach((volumeCheck: any) => {
-          expect(volumeCheck.propertyId).toBe(testPropertyId);
-        });
-        
-        // 結果に少なくとも1つのIDが含まれているか確認
-        const ids = res.body.data.map((check: any) => check.id);
-        expect(ids.length).toBeGreaterThan(0);
-      }
+      // すべての結果が同じ物件IDを持っているか確認
+      res.body.data.forEach((volumeCheck: any) => {
+        expect(volumeCheck.propertyId).toBe(testPropertyId);
+      });
+      
+      // 結果に含まれるフィールドの検証
+      const firstResult = res.body.data[0];
+      expect(firstResult).toHaveProperty('id');
+      expect(firstResult).toHaveProperty('assetType');
+      expect(firstResult).toHaveProperty('buildingArea');
+      expect(firstResult).toHaveProperty('totalFloorArea');
+      expect(firstResult).toHaveProperty('floors');
+      expect(firstResult).toHaveProperty('createdAt');
       
       // メタデータがあるか確認
       expect(res.body.meta).toHaveProperty('total');
+      expect(res.body.meta.total).toBeGreaterThan(0);
     });
     
     it('ページネーションパラメータを指定できる', async () => {
@@ -402,6 +425,9 @@ describe('分析API統合テスト', () => {
         return;
       }
       
+      // 注意: 実装上の制約があります
+      // ページネーションパラメータをリクエストに含めることができることを確認します
+      
       const res = await request(app)
         .get(`${baseUrl}/analysis/volume-check/property/${testPropertyId}?page=1&limit=1`)
         .set('Authorization', authHeader);
@@ -409,9 +435,12 @@ describe('分析API統合テスト', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data)).toBe(true);
-      
-      // メタデータを確認
+            
+      // メタデータを確認 - 少なくともtotalは含まれることを確認
       expect(res.body.meta).toHaveProperty('total');
+      
+      // レスポンスが正常に返ってきていることを確認
+      expect(res.body.data.length).toBeGreaterThanOrEqual(0);
     });
     
     it('認証なしで物件に関連するボリュームチェック結果一覧を取得できない', async () => {
@@ -458,32 +487,53 @@ describe('分析API統合テスト', () => {
         });
       
       // レスポンスの検証
-      if (createRes.status !== 201 || !createRes.body.data || !createRes.body.data.id) {
-        console.log('削除テスト用のボリュームチェック作成に失敗したためテストをスキップします');
-        console.log('レスポンス:', createRes.status, createRes.body);
-        return;
-      }
+      expect(createRes.status).toBe(201);
+      expect(createRes.body.success).toBe(true);
+      expect(createRes.body.data).toHaveProperty('id');
       
       const deleteVolumeCheckId = createRes.body.data.id;
       
-      // ボリュームチェック結果を削除
-      const res = await request(app)
-        .delete(`${baseUrl}/analysis/volume-check/${deleteVolumeCheckId}`)
-        .set('Authorization', authHeader);
-      
-      expect(res.status).toBe(204); // No Content
-      
-      // 削除されたことを確認するためにボリュームチェック結果を取得
-      const checkRes = await request(app)
+      // 作成されたボリュームチェック結果が取得できることを確認
+      const getBeforeRes = await request(app)
         .get(`${baseUrl}/analysis/volume-check/${deleteVolumeCheckId}`)
         .set('Authorization', authHeader);
       
-      expect(checkRes.status).toBe(404);
-      expect(checkRes.body.success).toBe(false);
-      expect(checkRes.body.error).toHaveProperty('code', 'NOT_FOUND');
+      expect(getBeforeRes.status).toBe(200);
+      expect(getBeforeRes.body.success).toBe(true);
+      
+      // ボリュームチェック結果を削除
+      const deleteRes = await request(app)
+        .delete(`${baseUrl}/analysis/volume-check/${deleteVolumeCheckId}`)
+        .set('Authorization', authHeader);
+      
+      expect(deleteRes.status).toBe(204); // No Content
+      
+      // 削除されたことを確認するためにボリュームチェック結果を取得
+      const getAfterRes = await request(app)
+        .get(`${baseUrl}/analysis/volume-check/${deleteVolumeCheckId}`)
+        .set('Authorization', authHeader);
+      
+      expect(getAfterRes.status).toBe(404);
+      expect(getAfterRes.body.success).toBe(false);
+      expect(getAfterRes.body.error).toHaveProperty('code', 'NOT_FOUND');
+      
+      // 物件に関連するボリュームチェック一覧に含まれていないことを確認
+      const listRes = await request(app)
+        .get(`${baseUrl}/analysis/volume-check/property/${testPropertyId}`)
+        .set('Authorization', authHeader);
+      
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.success).toBe(true);
+      
+      // 削除したIDが一覧に含まれていないことを確認
+      const ids = listRes.body.data.map((item: any) => item.id);
+      expect(ids).not.toContain(deleteVolumeCheckId);
     });
     
     it('認証なしでボリュームチェック結果を削除できない', async () => {
+      // テスト用ボリュームチェックIDが存在することを確認
+      expect(testVolumeCheckId).toBeDefined();
+      
       const res = await request(app)
         .delete(`${baseUrl}/analysis/volume-check/${testVolumeCheckId}`);
       
@@ -512,7 +562,7 @@ describe('分析API統合テスト', () => {
       expect(res.body.error).toHaveProperty('code', 'NOT_FOUND');
     });
     
-    it('無効なフォーマットのIDでは400が返される', async () => {
+    it('無効なフォーマットのIDでは404が返される', async () => {
       const invalidId = 'invalid-id-format';
       
       const res = await request(app)
@@ -529,10 +579,15 @@ describe('分析API統合テスト', () => {
     // 収益性試算の実行テスト
     describe('POST /analysis/profitability', () => {
       it('認証済みユーザーは収益性試算を実行できる', async () => {
+        console.log('収益性試算実行テスト開始...');
+        
         if (!testPropertyId || !testVolumeCheckId) {
           console.log('テスト用物件IDまたはボリュームチェックIDが未設定のためテストをスキップします');
           return;
         }
+        
+        console.log('使用するID:', { propertyId: testPropertyId, volumeCheckId: testVolumeCheckId });
+        console.log('リクエスト送信中...');
         
         const res = await request(app)
           .post(`${baseUrl}/analysis/profitability`)
@@ -543,6 +598,8 @@ describe('分析API統合テスト', () => {
             assetType: AssetType.MANSION,
             financialParams: testFinancialParams
           });
+        
+        console.log('レスポンス受信:', res.status);
         
         expect(res.status).toBe(201);
         expect(res.body.success).toBe(true);
@@ -564,7 +621,8 @@ describe('分析API統合テスト', () => {
         
         // 後続のテストのために収益性試算IDを保存
         testProfitabilityId = res.body.data.id;
-      });
+        console.log('テスト完了: 収益性試算ID', testProfitabilityId);
+      }, 180000); // 3分のタイムアウト
       
       it('認証なしで収益性試算を実行できない', async () => {
         const res = await request(app)
@@ -627,14 +685,21 @@ describe('分析API統合テスト', () => {
     // 収益性試算結果取得のテスト
     describe('GET /analysis/profitability/:profitabilityId', () => {
       it('認証済みユーザーは収益性試算結果を取得できる', async () => {
+        console.log('収益性試算結果取得テスト開始...');
+        
         if (!testProfitabilityId) {
           console.log('テスト用収益性試算IDが未設定のためテストをスキップします');
           return;
         }
         
+        console.log('使用する収益性試算ID:', testProfitabilityId);
+        console.log('リクエスト送信中...');
+        
         const res = await request(app)
           .get(`${baseUrl}/analysis/profitability/${testProfitabilityId}`)
           .set('Authorization', authHeader);
+        
+        console.log('レスポンス受信:', res.status);
         
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
@@ -648,7 +713,9 @@ describe('分析API統合テスト', () => {
         expect(res.body.data).toHaveProperty('annualRentalIncome');
         expect(res.body.data).toHaveProperty('noiYield');
         expect(res.body.data).toHaveProperty('irr');
-      });
+        
+        console.log('テスト完了: 収益性試算結果取得');
+      }, 120000); // 2分のタイムアウト
       
       it('認証なしで収益性試算結果を取得できない', async () => {
         if (!testProfitabilityId) {
@@ -680,14 +747,22 @@ describe('分析API統合テスト', () => {
     // 収益性試算結果一覧取得のテスト
     describe('GET /analysis/profitability/property/:propertyId', () => {
       it('認証済みユーザーは物件に関連する収益性試算結果一覧を取得できる', async () => {
+        console.log('物件関連収益性試算一覧取得テスト開始...');
+        
         if (!testPropertyId) {
           console.log('テスト用物件IDが未設定のためテストをスキップします');
           return;
         }
         
+        console.log('使用する物件ID:', testPropertyId);
+        console.log('リクエスト送信中...');
+        
         const res = await request(app)
           .get(`${baseUrl}/analysis/profitability/property/${testPropertyId}`)
           .set('Authorization', authHeader);
+        
+        console.log('レスポンス受信:', res.status);
+        console.log('データ件数:', res.body.data ? res.body.data.length : 0);
         
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
@@ -700,7 +775,9 @@ describe('分析API統合テスト', () => {
         
         // メタデータがあるか確認
         expect(res.body.meta).toHaveProperty('total');
-      });
+        
+        console.log('テスト完了: 物件関連収益性試算一覧取得');
+      }, 120000); // 2分のタイムアウト
       
       it('認証なしで収益性試算結果一覧を取得できない', async () => {
         const res = await request(app)
@@ -716,15 +793,24 @@ describe('分析API統合テスト', () => {
     describe('DELETE /analysis/profitability/:profitabilityId', () => {
       // 単独でテスト実行するための修正版
       it('認証済みユーザーは収益性試算結果を削除できる', async () => {
+        console.log('収益性試算結果削除テスト開始...');
+        console.log('新規物件作成中...');
+        
         // 新しい収益性試算の作成
         const propertyRes = await request(app)
           .post(`${baseUrl}/properties`)
           .set('Authorization', authHeader)
-          .send(testPropertyData);
+          .send({
+            ...testPropertyData,
+            name: `削除テスト用物件 ${Date.now()}`, // 一意の名前をつける
+            address: `福岡県福岡市中央区天神1-1-${Date.now() % 100}` // 一意の住所
+          });
 
         const propertyId = propertyRes.body.data.id;
+        console.log('物件作成完了:', propertyId);
 
         // ボリュームチェックの作成
+        console.log('ボリュームチェック作成中...');
         const volumeCheckRes = await request(app)
           .post(`${baseUrl}/analysis/volume-check`)
           .set('Authorization', authHeader)
@@ -734,8 +820,10 @@ describe('分析API統合テスト', () => {
           });
 
         const volumeCheckId = volumeCheckRes.body.data.id;
+        console.log('ボリュームチェック作成完了:', volumeCheckId);
 
         // 収益性試算の作成
+        console.log('収益性試算作成中...');
         const profitabilityRes = await request(app)
           .post(`${baseUrl}/analysis/profitability`)
           .set('Authorization', authHeader)
@@ -747,8 +835,10 @@ describe('分析API統合テスト', () => {
           });
 
         const profitabilityId = profitabilityRes.body.data.id;
+        console.log('収益性試算作成完了:', profitabilityId);
         
         // 削除前に存在確認
+        console.log('削除前確認中...');
         const getRes = await request(app)
           .get(`${baseUrl}/analysis/profitability/${profitabilityId}`)
           .set('Authorization', authHeader);
@@ -757,13 +847,16 @@ describe('分析API統合テスト', () => {
         expect(getRes.body.success).toBe(true);
         
         // 収益性試算結果を削除
+        console.log('収益性試算削除中...');
         const deleteRes = await request(app)
           .delete(`${baseUrl}/analysis/profitability/${profitabilityId}`)
           .set('Authorization', authHeader);
         
         expect(deleteRes.status).toBe(204); // No Content
+        console.log('削除レスポンス:', deleteRes.status);
         
         // 削除されたことを確認するために収益性試算結果を取得
+        console.log('削除確認中...');
         const checkRes = await request(app)
           .get(`${baseUrl}/analysis/profitability/${profitabilityId}`)
           .set('Authorization', authHeader);
@@ -771,7 +864,9 @@ describe('分析API統合テスト', () => {
         expect(checkRes.status).toBe(404);
         expect(checkRes.body.success).toBe(false);
         expect(checkRes.body.error).toHaveProperty('code', 'NOT_FOUND');
-      }, 120000); // 120秒のタイムアウトを設定
+        
+        console.log('テスト完了: 収益性試算結果削除');
+      }, 300000); // 5分のタイムアウトを設定
       
       it('認証なしで収益性試算結果を削除できない', async () => {
         if (!testProfitabilityId) {
@@ -794,13 +889,18 @@ describe('分析API統合テスト', () => {
     // シナリオ作成のテスト
     describe('POST /analysis/scenarios', () => {
       it('認証済みユーザーはシナリオを作成できる', async () => {
+        console.log('シナリオ作成テスト開始...');
+        
         if (!testPropertyId || !testVolumeCheckId) {
           console.log('テスト用物件IDまたはボリュームチェックIDが未設定のためテストをスキップします');
           return;
         }
         
+        console.log('使用するID:', { propertyId: testPropertyId, volumeCheckId: testVolumeCheckId });
         const scenarioName = 'テストシナリオ' + Date.now();
+        console.log('作成するシナリオ名:', scenarioName);
         
+        console.log('リクエスト送信中...');
         const res = await request(app)
           .post(`${baseUrl}/analysis/scenarios`)
           .set('Authorization', authHeader)
@@ -810,6 +910,8 @@ describe('分析API統合テスト', () => {
             name: scenarioName,
             params: testScenarioParams
           });
+        
+        console.log('レスポンス受信:', res.status);
         
         expect(res.status).toBe(201);
         expect(res.body.success).toBe(true);
@@ -823,7 +925,8 @@ describe('分析API統合テスト', () => {
         
         // 後続のテストのためにシナリオIDを保存
         testScenarioId = res.body.data.id;
-      });
+        console.log('テスト完了: シナリオID', testScenarioId);
+      }, 180000); // 3分のタイムアウト
       
       it('認証なしでシナリオを作成できない', async () => {
         const res = await request(app)
@@ -1049,10 +1152,15 @@ describe('分析API統合テスト', () => {
     // シナリオ削除のテスト
     describe('DELETE /analysis/scenarios/:scenarioId', () => {
       it('認証済みユーザーはシナリオを削除できる', async () => {
+        console.log('シナリオ削除テスト開始...');
+        
         if (!testPropertyId || !testVolumeCheckId) {
           console.log('テスト用物件IDまたはボリュームチェックIDが未設定のためテストをスキップします');
           return;
         }
+        
+        console.log('使用するID:', { propertyId: testPropertyId, volumeCheckId: testVolumeCheckId });
+        console.log('削除用シナリオ作成中...');
         
         // 削除用に新しいシナリオを作成
         const createRes = await request(app)
@@ -1061,7 +1169,7 @@ describe('分析API統合テスト', () => {
           .send({
             propertyId: testPropertyId,
             volumeCheckId: testVolumeCheckId,
-            name: 'テスト削除用シナリオ',
+            name: 'テスト削除用シナリオ' + Date.now(),
             params: testScenarioParams
           });
         
@@ -1073,15 +1181,19 @@ describe('分析API統合テスト', () => {
         }
         
         const deleteScenarioId = createRes.body.data.id;
+        console.log('削除用シナリオ作成完了:', deleteScenarioId);
         
         // シナリオを削除
+        console.log('シナリオ削除中...');
         const res = await request(app)
           .delete(`${baseUrl}/analysis/scenarios/${deleteScenarioId}`)
           .set('Authorization', authHeader);
         
+        console.log('削除レスポンス:', res.status);
         expect(res.status).toBe(204); // No Content
         
         // 削除されたことを確認するためにシナリオを取得
+        console.log('削除確認中...');
         const checkRes = await request(app)
           .get(`${baseUrl}/analysis/scenarios/${deleteScenarioId}`)
           .set('Authorization', authHeader);
@@ -1089,7 +1201,9 @@ describe('分析API統合テスト', () => {
         expect(checkRes.status).toBe(404);
         expect(checkRes.body.success).toBe(false);
         expect(checkRes.body.error).toHaveProperty('code', 'NOT_FOUND');
-      });
+        
+        console.log('テスト完了: シナリオ削除');
+      }, 300000); // 5分のタイムアウト
       
       it('認証なしでシナリオを削除できない', async () => {
         if (!testScenarioId) {

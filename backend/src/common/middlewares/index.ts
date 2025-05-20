@@ -11,12 +11,14 @@ import {
   getFileUrl, 
   extractShapeFromFile 
 } from './upload.middleware';
+import { validateWithJoi } from './joi.middleware';
 
 export {
   errorHandler,
   notFoundHandler,
   AppError,
   validate,
+  validateWithJoi,
   authRequired,
   hasRole,
   adminOnly,

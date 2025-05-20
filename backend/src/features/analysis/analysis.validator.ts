@@ -2,7 +2,7 @@
  * 分析機能用バリデーター
  */
 import { body, param } from 'express-validator';
-import { AssetType } from '../../types';
+import { AssetType, HeightDistrictType, ShadowRegulationType } from '../../types';
 import { validateId } from '../../common/validators/common.validator';
 
 /**
@@ -34,7 +34,44 @@ export const validateVolumeCheckRequest = [
     
   body('buildingParams.assetType')
     .isIn(Object.values(AssetType))
-    .withMessage('有効なアセットタイプを選択してください')
+    .withMessage('有効なアセットタイプを選択してください'),
+    
+  // 高度地区（オプション）
+  body('buildingParams.heightDistrict')
+    .optional()
+    .isIn(Object.values(HeightDistrictType))
+    .withMessage('有効な高度地区を選択してください'),
+    
+  // 北側境界線距離（オプション）
+  body('buildingParams.northBoundaryDistance')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('北側境界線距離は0m以上の数値である必要があります'),
+    
+  // 壁面後退距離（オプション）
+  body('buildingParams.districtPlanInfo.wallSetbackDistance')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('壁面後退距離は0m以上の数値である必要があります'),
+    
+  // 地区計画高さ制限（オプション）
+  body('buildingParams.districtPlanInfo.maxHeight')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('地区計画高さ制限は0m以上の数値である必要があります'),
+    
+  // 地区計画名（壁面後退距離または高さ制限が指定された場合は必須）
+  body('buildingParams.districtPlanInfo.name')
+    .optional()
+    .isString()
+    .withMessage('地区計画名は文字列である必要があります')
+    .custom((value, { req }) => {
+      const districtPlanInfo = req.body.buildingParams?.districtPlanInfo || {};
+      if ((districtPlanInfo.wallSetbackDistance || districtPlanInfo.maxHeight) && !value) {
+        throw new Error('地区計画情報を指定する場合、地区計画名は必須です');
+      }
+      return true;
+    })
 ];
 
 /**

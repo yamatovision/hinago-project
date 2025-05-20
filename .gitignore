@@ -33,6 +33,9 @@ Thumbs.db
 **/config/secrets.js
 **/credentials.json
 **/deployment/secrets/
+**/token_response.json
+**/property_response.json
+.appgenius_temp/
 
 # テストとスクリプトフォルダ
 /test/

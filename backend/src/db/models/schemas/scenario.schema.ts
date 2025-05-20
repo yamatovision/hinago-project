@@ -51,7 +51,7 @@ const ScenarioSchema = new Schema<ScenarioDocument>(
       type: ScenarioParamsSchema,
       required: true
     },
-    profitabilityResult: {
+    profitabilityResultId: {
       type: String,
       ref: 'Profitability'
     },

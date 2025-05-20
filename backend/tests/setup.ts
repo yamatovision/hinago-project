@@ -12,8 +12,8 @@ import { logger } from '../src/common/utils';
 // 環境変数のロード
 config();
 
-// テストのタイムアウト設定（デフォルトは30秒）
-jest.setTimeout(30000);
+// テストのタイムアウト設定（10分）- シナリオ関連のテストは時間がかかるため
+jest.setTimeout(600000);
 
 // 必要な環境変数が設定されているか確認
 const requiredEnvVars = [

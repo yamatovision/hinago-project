@@ -143,6 +143,33 @@ export class ProfitabilityModel {
       throw error;
     }
   }
+  
+  /**
+   * 収益性試算結果を更新
+   * @param id 収益性試算結果ID
+   * @param updateData 更新データ
+   * @returns 更新された収益性試算結果オブジェクト
+   */
+  static async update(id: string, updateData: Partial<Omit<ProfitabilityResult, 'id' | 'createdAt' | 'updatedAt'>>): Promise<ProfitabilityResult | null> {
+    try {
+      const updatedProfitability = await MongoProfitabilityModel.findByIdAndUpdate(
+        id,
+        { $set: updateData },
+        { new: true, runValidators: true }
+      ).lean();
+      
+      if (!updatedProfitability) return null;
+      
+      // _id を id に変換
+      return {
+        ...updatedProfitability,
+        id: String(updatedProfitability._id),
+      } as ProfitabilityResult;
+    } catch (error) {
+      logger.error('収益性試算結果更新エラー', { error, id });
+      throw error;
+    }
+  }
 
   /**
    * 収益性試算結果を削除

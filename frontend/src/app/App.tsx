@@ -7,7 +7,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import LoginPage from '../features/auth/pages/LoginPage';
 import { DashboardPage } from '../features/dashboard/pages';
 import { PropertyRegisterPage, PropertyDetailPage } from '../features/properties/pages';
-import { VolumeCheckPage } from '../features/analysis/pages';
+import { VolumeCheckPage, ProfitabilityPage } from '../features/analysis/pages';
 import ProtectedRoute from '../common/components/ProtectedRoute';
 import { theme } from './theme';
 import { AuthProvider } from '../common/hooks/useAuth';
@@ -58,9 +58,9 @@ const App = () => {
                 <VolumeCheckPage />
               </ProtectedRoute>
             } />
-            <Route path="/analysis/profitability/:id" element={
+            <Route path="/analysis/profitability/:volumeCheckId" element={
               <ProtectedRoute>
-                <div>収益性試算ページ（開発中）</div>
+                <ProfitabilityPage />
               </ProtectedRoute>
             } />
             <Route path="/reports" element={

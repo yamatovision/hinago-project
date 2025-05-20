@@ -6,6 +6,7 @@ import { BuildingModel } from './BuildingModel';
 import { SiteModel } from './SiteModel';
 import { Lighting } from './Lighting';
 import { useThreeStore } from './helpers/useThreeStore';
+import { ShadowVisualization } from './ShadowVisualization';
 
 interface ThreeViewerProps {
   volumeCheck: VolumeCheck;
@@ -28,9 +29,16 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
     viewMode: 'normal',
   },
 }) => {
-  // グローバルstate更新
-  const { setVolumeCheck, setProperty } = useThreeStore();
+  // グローバルstate
+  const { 
+    setVolumeCheck, 
+    setProperty,
+    shadowState, 
+    showShadowVisualization,
+    shadowOpacity
+  } = useThreeStore();
   
+  // グローバルstateを更新
   useEffect(() => {
     setVolumeCheck(volumeCheck);
     setProperty(property);
@@ -85,6 +93,18 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
           showFloors={options.showFloors}
           viewMode={options.viewMode || 'normal'} 
         />
+        
+        {/* 日影シミュレーション */}
+        {showShadowVisualization && volumeCheck.shadowSimulation && (
+          <ShadowVisualization 
+            volumeCheck={volumeCheck}
+            property={property}
+            timePoint={shadowState?.isAnimating ? undefined : shadowState?.currentTime}
+            animationSpeed={1}
+            showShadowMap={true}
+            shadingOpacity={shadowOpacity}
+          />
+        )}
         
         {/* カメラコントロール */}
         <OrbitControls 

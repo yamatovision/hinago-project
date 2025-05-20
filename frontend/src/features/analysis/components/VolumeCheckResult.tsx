@@ -17,12 +17,16 @@ import {
   TableRow,
   Divider,
   Button,
+  Stack,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import CalculateIcon from '@mui/icons-material/Calculate';
+import { useNavigate } from 'react-router-dom';
 import { VolumeCheck, FloorData, RegulationCheck, Property } from 'shared';
 import { ThreeViewer } from './ThreeViewer';
 import { ThreeViewerControls } from './ThreeViewerControls';
 import { useThreeStore } from './ThreeViewer/helpers/useThreeStore';
+import RegulationDetailPanel from './RegulationDetailPanel';
 
 interface VolumeCheckResultProps {
   volumeCheck: VolumeCheck;
@@ -67,6 +71,7 @@ const assetTypeMap: Record<string, string> = {
 
 const VolumeCheckResult = ({ volumeCheck, property, onRecalculate }: VolumeCheckResultProps) => {
   const [activeTab, setActiveTab] = useState(0);
+  const navigate = useNavigate();
   
   // Three.js用の状態を取得
   const { showFloors, showSite, showGrid, viewMode } = useThreeStore();
@@ -79,8 +84,16 @@ const VolumeCheckResult = ({ volumeCheck, property, onRecalculate }: VolumeCheck
     setActiveTab(newValue);
   };
   
+  // 収益性試算ページへ遷移
+  const handleNavigateToProfitability = () => {
+    navigate(`/analysis/profitability/${volumeCheck.id}`);
+  };
+  
   // 階別データのソート（降順）
   const sortedFloorData = [...(volumeCheck.floorBreakdown || [])].sort((a, b) => b.floor - a.floor);
+  
+  // 日影シミュレーションがあるかどうか
+  const hasShadowSimulation = volumeCheck.shadowSimulation !== undefined;
   
   return (
     <Box>
@@ -88,14 +101,25 @@ const VolumeCheckResult = ({ volumeCheck, property, onRecalculate }: VolumeCheck
         <Typography variant="h6" component="h2">
           計算結果
         </Typography>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<RefreshIcon />}
-          onClick={onRecalculate}
-        >
-          再計算
-        </Button>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="contained"
+            size="small"
+            color="primary"
+            startIcon={<CalculateIcon />}
+            onClick={handleNavigateToProfitability}
+          >
+            収益性試算
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RefreshIcon />}
+            onClick={onRecalculate}
+          >
+            再計算
+          </Button>
+        </Stack>
       </Box>
       
       <Divider sx={{ mb: 3 }} />
@@ -155,6 +179,9 @@ const VolumeCheckResult = ({ volumeCheck, property, onRecalculate }: VolumeCheck
             <Tab label="階別内訳" id="volume-check-tab-0" aria-controls="volume-check-tabpanel-0" />
             <Tab label="建築仕様" id="volume-check-tab-1" aria-controls="volume-check-tabpanel-1" />
             <Tab label="規制チェック" id="volume-check-tab-2" aria-controls="volume-check-tabpanel-2" />
+            {hasShadowSimulation && volumeCheck.regulationLimits && (
+              <Tab label="詳細規制情報" id="volume-check-tab-3" aria-controls="volume-check-tabpanel-3" />
+            )}
           </Tabs>
         </Box>
         
@@ -274,6 +301,16 @@ const VolumeCheckResult = ({ volumeCheck, property, onRecalculate }: VolumeCheck
             </Table>
           </TableContainer>
         </TabPanel>
+        
+        {/* 詳細規制情報タブ */}
+        {hasShadowSimulation && volumeCheck.regulationLimits && (
+          <TabPanel value={activeTab} index={3}>
+            <RegulationDetailPanel 
+              volumeCheck={volumeCheck} 
+              property={property} 
+            />
+          </TabPanel>
+        )}
       </Box>
     </Box>
   );

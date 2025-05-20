@@ -8,7 +8,10 @@ import {
   ZoneType, 
   FireZoneType, 
   ShadowRegulationType, 
-  PropertyStatus 
+  PropertyStatus,
+  HeightDistrictType,
+  DistrictPlanInfo,
+  ShadowRegulationDetail
 } from '../../../types';
 
 // 物件ドキュメントインターフェース
@@ -28,6 +31,23 @@ const PropertyShapeSchema = new Schema({
   width: { type: Number },
   depth: { type: Number },
   sourceFile: { type: String }
+}, { _id: false });
+
+// 日影規制詳細情報のサブスキーマ（追加）
+const ShadowRegulationDetailSchema = new Schema({
+  measurementHeight: { type: Number, required: true },
+  hourRanges: {
+    primary: { type: Number, required: true },
+    secondary: { type: Number, required: true }
+  }
+}, { _id: false });
+
+// 地区計画情報のサブスキーマ（追加）
+const DistrictPlanInfoSchema = new Schema({
+  name: { type: String, required: true },
+  wallSetbackDistance: { type: Number, min: 0 },
+  maxHeight: { type: Number, min: 0 },
+  specialRegulations: { type: [String] }
 }, { _id: false });
 
 // 物件スキーマ定義
@@ -108,6 +128,22 @@ const PropertySchema = new Schema<PropertyDocument>(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
+    },
+    // 新規追加フィールド（すべて任意）
+    heightDistrict: {
+      type: String,
+      enum: Object.values(HeightDistrictType),
+      default: HeightDistrictType.NONE
+    },
+    northBoundaryDistance: {
+      type: Number,
+      min: 0
+    },
+    districtPlanInfo: {
+      type: DistrictPlanInfoSchema
+    },
+    shadowRegulationDetail: {
+      type: ShadowRegulationDetailSchema
     }
   },
   { 
