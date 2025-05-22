@@ -4,7 +4,6 @@ import {
   Typography,
   CircularProgress,
   Alert,
-  Paper
 } from '@mui/material';
 import {
   History as HistoryIcon

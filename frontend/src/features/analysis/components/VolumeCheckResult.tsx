@@ -1,7 +1,7 @@
 /**
  * ボリュームチェック結果表示コンポーネント
  */
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -22,7 +22,7 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import { useNavigate } from 'react-router-dom';
-import { VolumeCheck, FloorData, RegulationCheck, Property } from 'shared';
+import { VolumeCheck, Property } from 'shared';
 import { ThreeViewer } from './ThreeViewer';
 import { ThreeViewerControls } from './ThreeViewerControls';
 import { useThreeStore } from './ThreeViewer/helpers/useThreeStore';
@@ -80,7 +80,7 @@ const VolumeCheckResult = ({ volumeCheck, property, onRecalculate }: VolumeCheck
   const maxTheoretical = property.area * property.floorAreaRatio / 100;
   
   // タブ切り替え
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
   };
   

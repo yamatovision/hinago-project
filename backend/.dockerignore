@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+coverage
+*.md
+.git
+.gitignore
+tests
+*.test.ts
+*.test.js
+temp-js
+docs
+uploads

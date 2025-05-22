@@ -193,7 +193,7 @@ export const ShadowControls: React.FC<ShadowControlsProps> = ({
               step={0.25}
               onChange={handleTimeChange}
               valueLabelDisplay="auto"
-              valueLabelFormat={(value) => formatTime(value)}
+              valueLabelFormat={(value: number) => formatTime(value)}
               disabled={viewMode !== 'static'}
               sx={{ mx: 1 }}
             />

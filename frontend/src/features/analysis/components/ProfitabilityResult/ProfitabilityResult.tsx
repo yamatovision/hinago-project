@@ -5,7 +5,6 @@ import {
   Paper,
   Grid,
   Divider,
-  Button,
   IconButton,
   Tooltip,
   Tabs,
@@ -110,11 +109,11 @@ export const ProfitabilityResult: React.FC<ProfitabilityResultProps> = ({
     }).format(amount);
   };
   
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
   
-  const handleSensitivityTabChange = (event: React.SyntheticEvent, newValue: 'irr' | 'noi' | 'npv') => {
+  const handleSensitivityTabChange = (_event: React.SyntheticEvent, newValue: 'irr' | 'noi' | 'npv') => {
     setSensitivityTab(newValue);
   };
   

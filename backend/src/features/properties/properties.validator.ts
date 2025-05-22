@@ -3,7 +3,7 @@
  */
 import { body, query, param } from 'express-validator';
 import { validatePagination, validateId } from '../../common/validators/common.validator';
-import { ZoneType, FireZoneType, ShadowRegulationType, PropertyStatus, DocumentType } from '../../types';
+import { ZoneType, FireZoneType, ShadowRegulationType, PropertyStatus } from '../../types';
 
 /**
  * 物件一覧取得のバリデーション
@@ -210,37 +210,5 @@ export const validateUpdateShape = [
   ...validateShapeData,
 ];
 
-/**
- * 物件文書アップロードのバリデーション
- */
-export const validateUploadDocument = [
-  validateId('propertyId'),
-  body('documentType')
-    .isIn(Object.values(DocumentType))
-    .withMessage('documentTypeは有効な文書タイプである必要があります'),
-  body('description')
-    .optional()
-    .isString()
-    .withMessage('descriptionは文字列である必要があります')
-    .isLength({ max: 500 })
-    .withMessage('descriptionは500文字以内で入力してください'),
-];
 
-/**
- * 物件文書一覧取得のバリデーション
- */
-export const validateListDocuments = [
-  validateId('propertyId'),
-  query('documentType')
-    .optional()
-    .isIn(Object.values(DocumentType))
-    .withMessage('documentTypeは有効な文書タイプである必要があります'),
-];
 
-/**
- * 物件文書削除のバリデーション
- */
-export const validateDeleteDocument = [
-  validateId('propertyId'),
-  validateId('documentId'),
-];

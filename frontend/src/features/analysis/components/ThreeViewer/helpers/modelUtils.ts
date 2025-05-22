@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BoundaryPoint, PropertyShape } from 'shared';
+import { BoundaryPoint } from 'shared';
 
 /**
  * 敷地形状からThree.jsのShapeを生成する

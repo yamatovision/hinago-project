@@ -8,15 +8,9 @@ import {
   Typography, 
   Box, 
   Paper,
-  Button,
-  Divider,
-  CircularProgress,
   Snackbar,
   Alert
 } from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import CloseIcon from '@mui/icons-material/Close';
 import Header from '../../../common/components/Header/Header';
 import PropertyForm from '../components/PropertyForm/PropertyForm';
 import { PropertyCreateData, Property } from 'shared';
@@ -27,7 +21,7 @@ const PropertyRegisterPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [createdProperty, setCreatedProperty] = useState<Property | null>(null);
+  const [, setCreatedProperty] = useState<Property | null>(null);
 
   // フォーム送信処理
   const handleSubmit = async (data: PropertyCreateData, andNavigate: boolean = false) => {

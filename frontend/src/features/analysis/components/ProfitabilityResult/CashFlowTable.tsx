@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Box,
-  Typography,
   Paper,
   Table,
   TableBody,
@@ -10,7 +9,6 @@ import {
   TableHead,
   TableRow,
   Button,
-  Collapse
 } from '@mui/material';
 import { 
   ExpandMore as ExpandMoreIcon, 

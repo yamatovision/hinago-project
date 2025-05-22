@@ -6,10 +6,8 @@ import {
   Paper, 
   Box, 
   Button, 
-  Divider, 
   Grid, 
   Stack,
-  CircularProgress,
   Alert,
   Tabs,
   Tab,
@@ -17,14 +15,12 @@ import {
   Tooltip
 } from '@mui/material';
 import { 
-  AddCircleOutline as AddIcon,
-  AssessmentOutlined as ChartIcon,
   Calculate as CalculateIcon,
   PictureAsPdf as PdfIcon,
   ArrowBack as BackIcon,
   Save as SaveIcon
 } from '@mui/icons-material';
-import { LoadingSpinner } from '../../../common/components/LoadingSpinner';
+import LoadingSpinner from '../../../common/components/LoadingSpinner';
 import { 
   getVolumeCheckById, 
   getProfitabilitiesByVolumeCheck,
@@ -33,9 +29,7 @@ import {
 import { 
   VolumeCheck, 
   ProfitabilityResult, 
-  Property, 
-  Scenario,
-  AssetType 
+  Scenario
 } from 'shared';
 
 // このコンポーネントは後で実装
@@ -76,7 +70,6 @@ const ProfitabilityPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [volumeCheck, setVolumeCheck] = useState<VolumeCheck | null>(null);
-  const [property, setProperty] = useState<Property | null>(null);
   const [profitabilities, setProfitabilities] = useState<ProfitabilityResult[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [selectedProfitability, setSelectedProfitability] = useState<ProfitabilityResult | null>(null);
@@ -115,13 +108,9 @@ const ProfitabilityPage: React.FC = () => {
         }
         
         // シナリオ情報の取得
-        const scenariosData = await getScenarios();
+        const scenariosData = await getScenarios(volumeCheckId);
         if (scenariosData) {
-          // このボリュームチェックに関連するシナリオのみフィルタリング
-          const filteredScenarios = scenariosData.filter(
-            scenario => scenario.volumeCheckId === volumeCheckId
-          );
-          setScenarios(filteredScenarios);
+          setScenarios(scenariosData);
         }
         
         setLoading(false);
@@ -135,7 +124,7 @@ const ProfitabilityPage: React.FC = () => {
     fetchData();
   }, [volumeCheckId]);
   
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
   

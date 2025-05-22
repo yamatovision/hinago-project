@@ -3,14 +3,12 @@
  * 
  * 物件に関連するビジネスロジックを提供します。
  */
-import { PropertyModel, DocumentModel } from '../../db/models';
+import { PropertyModel } from '../../db/models';
 import { 
   PropertyCreateData, 
   PropertyUpdateData, 
   Property, 
-  PropertyShape, 
-  Document,
-  DocumentType
+  PropertyShape
 } from '../../types';
 import { logger } from '../../common/utils';
 import { extractShapeFromFile, getFileUrl } from '../../common/middlewares';
@@ -122,9 +120,6 @@ export const updateProperty = async (
  */
 export const deleteProperty = async (id: string): Promise<boolean> => {
   try {
-    // 関連する文書も削除
-    await DocumentModel.deleteByPropertyId(id);
-    
     // 物件を削除
     return await PropertyModel.delete(id);
   } catch (error) {
@@ -201,111 +196,3 @@ export const updatePropertyShape = async (
   }
 };
 
-/**
- * 物件文書をアップロード
- * @param propertyId 物件ID
- * @param documentType 文書タイプ
- * @param file アップロードファイル
- * @param description 説明（任意）
- * @param userId アップロードユーザーID（任意）
- * @returns 作成された文書オブジェクト
- */
-export const uploadDocument = async (
-  propertyId: string,
-  documentType: DocumentType,
-  file: Express.Multer.File,
-  description?: string,
-  userId?: string
-): Promise<Document> => {
-  try {
-    // 物件が存在するか確認
-    const property = await PropertyModel.findById(propertyId);
-    if (!property) {
-      throw new Error('指定された物件が見つかりません');
-    }
-    
-    // ファイルのMIMEタイプと拡張子から適切なfileTypeを決定
-    const fileType = file.mimetype;
-    
-    // 文書データを作成
-    const documentData = {
-      propertyId,
-      name: path.basename(file.originalname), // オリジナルのファイル名を使用
-      fileType,
-      fileSize: file.size,
-      fileUrl: getFileUrl(file),
-      documentType,
-      description,
-      userId
-    };
-    
-    // 文書を作成
-    const document = await DocumentModel.create(documentData);
-    logger.info(`文書がアップロードされました: ${document.id}`, { propertyId, documentType });
-    
-    return document;
-  } catch (error) {
-    // エラー時はファイルを削除
-    if (file && file.path) {
-      try {
-        fs.unlinkSync(file.path);
-      } catch (unlinkError) {
-        logger.error('アップロードファイル削除エラー', { error: unlinkError });
-      }
-    }
-    logger.error('文書アップロードエラー', { error, propertyId });
-    throw error;
-  }
-};
-
-/**
- * 物件の文書一覧を取得
- * @param propertyId 物件ID
- * @param documentType 文書タイプでフィルター（任意）
- * @returns 文書リスト
- */
-export const getDocuments = async (
-  propertyId: string,
-  documentType?: DocumentType
-): Promise<Document[]> => {
-  try {
-    // 物件が存在するか確認
-    const property = await PropertyModel.findById(propertyId);
-    if (!property) {
-      throw new Error('指定された物件が見つかりません');
-    }
-    
-    // 文書を取得
-    return await DocumentModel.findByPropertyId(propertyId, documentType);
-  } catch (error) {
-    logger.error('文書一覧取得エラー', { error, propertyId });
-    throw error;
-  }
-};
-
-/**
- * 文書を削除
- * @param propertyId 物件ID
- * @param documentId 文書ID
- * @returns 削除が成功したかどうか
- */
-export const deleteDocument = async (
-  propertyId: string, 
-  documentId: string
-): Promise<boolean> => {
-  try {
-    // 物件と文書の関連を確認
-    const documents = await DocumentModel.findByPropertyId(propertyId);
-    const targetDocument = documents.find(doc => doc.id === documentId);
-    
-    if (!targetDocument) {
-      return false;
-    }
-    
-    // 文書を削除
-    return await DocumentModel.delete(documentId);
-  } catch (error) {
-    logger.error('文書削除エラー', { error, propertyId, documentId });
-    throw error;
-  }
-};

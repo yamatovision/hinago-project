@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "yamatovision-blue-lamp"
+  },
+  "targets": {
+    "yamatovision-blue-lamp": {
+      "hosting": {
+        "hinago-project": [
+          "hinago-project"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

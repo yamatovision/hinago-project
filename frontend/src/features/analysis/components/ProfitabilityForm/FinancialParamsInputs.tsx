@@ -10,7 +10,6 @@ import {
   IconButton
 } from '@mui/material';
 import {
-  InfoOutlined as InfoIcon,
   HelpOutline as HelpIcon
 } from '@mui/icons-material';
 import { FinancialParams, AssetType } from 'shared';
@@ -30,41 +29,6 @@ const TOOLTIPS = {
   capRate: '還元利回りは、不動産の価値評価に使用される指標で、年間純収益を不動産価値で割った値です。'
 };
 
-// アセットタイプごとのデフォルト値
-const ASSET_TYPE_DEFAULTS = {
-  [AssetType.MANSION]: {
-    rentPerSqm: 2800,
-    occupancyRate: 95,
-    managementCostRate: 18,
-    constructionCostPerSqm: 450000,
-    rentalPeriod: 20,
-    capRate: 4.0
-  },
-  [AssetType.OFFICE]: {
-    rentPerSqm: 3500,
-    occupancyRate: 95,
-    managementCostRate: 15,
-    constructionCostPerSqm: 400000,
-    rentalPeriod: 20,
-    capRate: 4.0
-  },
-  [AssetType.WOODEN_APARTMENT]: {
-    rentPerSqm: 2100,
-    occupancyRate: 90,
-    managementCostRate: 20,
-    constructionCostPerSqm: 280000,
-    rentalPeriod: 20,
-    capRate: 5.0
-  },
-  [AssetType.HOTEL]: {
-    rentPerSqm: 4500,
-    occupancyRate: 85,
-    managementCostRate: 25,
-    constructionCostPerSqm: 550000,
-    rentalPeriod: 20,
-    capRate: 3.5
-  }
-};
 
 // スライダーの範囲設定
 const SLIDER_RANGES = {
@@ -76,31 +40,13 @@ const SLIDER_RANGES = {
   capRate: { min: 2.0, max: 7.0, step: 0.1 }
 };
 
-const formatValue = (key: keyof FinancialParams, value: number): string => {
-  switch (key) {
-    case 'rentPerSqm':
-      return `${value.toLocaleString()} 円/m²`;
-    case 'occupancyRate':
-    case 'managementCostRate':
-      return `${value}%`;
-    case 'constructionCostPerSqm':
-      return `${value.toLocaleString()} 円/m²`;
-    case 'rentalPeriod':
-      return `${value}年`;
-    case 'capRate':
-      return `${value}%`;
-    default:
-      return `${value}`;
-  }
-};
 
 const FinancialParamsInputs: React.FC<FinancialParamsInputsProps> = ({
   params,
-  onParamsChange,
-  assetType
+  onParamsChange
 }) => {
   const handleSliderChange = (key: keyof FinancialParams) => (
-    event: Event,
+    _event: Event,
     newValue: number | number[]
   ) => {
     if (typeof newValue === 'number') {
@@ -123,9 +69,6 @@ const FinancialParamsInputs: React.FC<FinancialParamsInputsProps> = ({
     }
   };
 
-  const resetToDefaults = () => {
-    onParamsChange(ASSET_TYPE_DEFAULTS[assetType]);
-  };
 
   return (
     <Box>
@@ -159,7 +102,7 @@ const FinancialParamsInputs: React.FC<FinancialParamsInputsProps> = ({
                     { value: SLIDER_RANGES.rentPerSqm.max, label: '高め' }
                   ]}
                   valueLabelDisplay="auto"
-                  valueLabelFormat={(value) => `${value.toLocaleString()}円/m²`}
+                  valueLabelFormat={(value: number) => `${value.toLocaleString()}円/m²`}
                 />
               </Grid>
               <Grid item>
@@ -207,7 +150,7 @@ const FinancialParamsInputs: React.FC<FinancialParamsInputsProps> = ({
                     { value: SLIDER_RANGES.occupancyRate.max, label: '高め' }
                   ]}
                   valueLabelDisplay="auto"
-                  valueLabelFormat={(value) => `${value}%`}
+                  valueLabelFormat={(value: number) => `${value}%`}
                 />
               </Grid>
               <Grid item>
@@ -255,7 +198,7 @@ const FinancialParamsInputs: React.FC<FinancialParamsInputsProps> = ({
                     { value: SLIDER_RANGES.managementCostRate.max, label: '高め' }
                   ]}
                   valueLabelDisplay="auto"
-                  valueLabelFormat={(value) => `${value}%`}
+                  valueLabelFormat={(value: number) => `${value}%`}
                 />
               </Grid>
               <Grid item>
@@ -309,7 +252,7 @@ const FinancialParamsInputs: React.FC<FinancialParamsInputsProps> = ({
                     { value: SLIDER_RANGES.constructionCostPerSqm.max, label: '高め' }
                   ]}
                   valueLabelDisplay="auto"
-                  valueLabelFormat={(value) => `${value.toLocaleString()}円/m²`}
+                  valueLabelFormat={(value: number) => `${value.toLocaleString()}円/m²`}
                 />
               </Grid>
               <Grid item>
@@ -357,7 +300,7 @@ const FinancialParamsInputs: React.FC<FinancialParamsInputsProps> = ({
                     { value: SLIDER_RANGES.rentalPeriod.max, label: '長期' }
                   ]}
                   valueLabelDisplay="auto"
-                  valueLabelFormat={(value) => `${value}年`}
+                  valueLabelFormat={(value: number) => `${value}年`}
                 />
               </Grid>
               <Grid item>
@@ -405,7 +348,7 @@ const FinancialParamsInputs: React.FC<FinancialParamsInputsProps> = ({
                     { value: SLIDER_RANGES.capRate.max, label: '高め' }
                   ]}
                   valueLabelDisplay="auto"
-                  valueLabelFormat={(value) => `${value}%`}
+                  valueLabelFormat={(value: number) => `${value}%`}
                 />
               </Grid>
               <Grid item>

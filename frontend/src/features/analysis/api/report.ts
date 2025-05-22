@@ -2,7 +2,7 @@
  * レポート生成API関連の処理
  */
 import { API_PATHS, ReportType, ReportFormat, ReportGenerateRequest, ReportGenerateResponse } from '../../../../../shared';
-import { api } from '../../../common/utils/api';
+import { get, post } from '../../../common/utils/api';
 
 /**
  * レポート生成
@@ -10,8 +10,8 @@ import { api } from '../../../common/utils/api';
  * @returns レポート生成結果
  */
 export const generateReport = async (params: ReportGenerateRequest): Promise<ReportGenerateResponse> => {
-  const response = await api.post<ReportGenerateResponse>(API_PATHS.ANALYSIS.REPORT, params);
-  return response.data;
+  const response = await post<ReportGenerateResponse>(API_PATHS.ANALYSIS.REPORT, params);
+  return response.data!;
 };
 
 /**
@@ -40,8 +40,8 @@ export const generateVolumeCheckReport = async (
   const queryString = queryParams.toString();
   const fullUrl = queryString ? `${url}?${queryString}` : url;
   
-  const response = await api.get<ReportGenerateResponse>(fullUrl);
-  return response.data;
+  const response = await get<ReportGenerateResponse>(fullUrl);
+  return response.data!;
 };
 
 /**
@@ -70,8 +70,8 @@ export const generateProfitabilityReport = async (
   const queryString = queryParams.toString();
   const fullUrl = queryString ? `${url}?${queryString}` : url;
   
-  const response = await api.get<ReportGenerateResponse>(fullUrl);
-  return response.data;
+  const response = await get<ReportGenerateResponse>(fullUrl);
+  return response.data!;
 };
 
 /**

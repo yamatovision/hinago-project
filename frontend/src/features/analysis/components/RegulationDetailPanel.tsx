@@ -30,19 +30,10 @@ export const RegulationDetailPanel: React.FC<RegulationDetailPanelProps> = ({
   property,
 }) => {
   // 日影規制の日本語表示
-  const shadowRegulationLabel = {
+  const shadowRegulationLabel: Record<string, string> = {
     'type1': '規制タイプ1（4時間/2.5時間）',
     'type2': '規制タイプ2（5時間/3時間）',
     'none': '規制なし',
-  };
-
-  // 高度地区の日本語表示
-  const heightDistrictLabel = {
-    'first10m': '第一種10M高度地区',
-    'first15m': '第一種15M高度地区',
-    'second15m': '第二種15M高度地区',
-    'second20m': '第二種20M高度地区',
-    'none': '指定なし',
   };
 
   // 地区計画情報の有無

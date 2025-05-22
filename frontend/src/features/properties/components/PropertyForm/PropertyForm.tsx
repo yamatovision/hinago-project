@@ -1,7 +1,7 @@
 /**
  * 物件情報入力フォームコンポーネント
  */
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Grid, 
@@ -34,8 +34,7 @@ import {
   PropertyStatus,
   VALIDATION_RULES,
   HeightDistrictType,
-  DistrictPlanInfo,
-  ShadowRegulationDetail
+  DistrictPlanInfo
 } from 'shared';
 import { getGeocode } from '../../api/properties';
 import { PropertyMap } from '../Map';
@@ -122,10 +121,10 @@ const PropertyForm = ({
   // 入力値変更時のハンドラ
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    let parsedValue: any = value;
+    let parsedValue: string | number = value;
 
     // 数値フィールドのパース
-    if (['area', 'buildingCoverage', 'floorAreaRatio', 'price', 'heightLimit', 'roadWidth'].includes(name)) {
+    if (['area', 'buildingCoverage', 'floorAreaRatio', 'price', 'heightLimit', 'roadWidth', 'northBoundaryDistance'].includes(name)) {
       parsedValue = value === '' ? '' : Number(value);
     }
 
@@ -143,6 +142,32 @@ const PropertyForm = ({
     }
   };
 
+  // 日影規制詳細のハンドラ
+  const handleShadowRegulationDetailChange = (value: number) => {
+    const shadowRegulationDetail = { 
+      ...values.shadowRegulationDetail || {
+        hourRanges: { primary: 4, secondary: 2.5 }
+      }, 
+      measurementHeight: value 
+    };
+    setValues({
+      ...values,
+      shadowRegulationDetail
+    });
+  };
+
+  // 地区計画情報のハンドラ
+  const handleDistrictPlanInfoChange = (field: keyof DistrictPlanInfo, value: string | number | undefined) => {
+    const districtPlanInfo = { 
+      ...values.districtPlanInfo || { name: '' }, 
+      [field]: value 
+    };
+    setValues({
+      ...values,
+      districtPlanInfo
+    });
+  };
+
   // 住所変更時のジオコーディング
   useEffect(() => {
     const geocodeAddress = async () => {
@@ -155,9 +180,8 @@ const PropertyForm = ({
           setValues(prev => ({
             ...prev,
             geoLocation: {
-              lat: result.lat,
-              lng: result.lng,
-              formatted_address: values.address
+              latitude: result.lat,
+              longitude: result.lng
             }
           }));
         }
@@ -245,9 +269,8 @@ const PropertyForm = ({
       // ジオロケーション情報がない場合でも送信できるようにする
       if (!values.geoLocation && values.lat && values.lng) {
         values.geoLocation = {
-          lat: values.lat,
-          lng: values.lng,
-          formatted_address: values.address
+          latitude: values.lat,
+          longitude: values.lng
         };
       }
       
@@ -269,7 +292,7 @@ const PropertyForm = ({
   };
 
   return (
-    <Box component="form" onSubmit={(e) => handleSubmit(e)} noValidate>
+    <Box component="form" onSubmit={(e: React.FormEvent) => handleSubmit(e)} noValidate>
       {/* 物件情報セクション */}
       <Box sx={{ mb: 4 }}>
         <Typography 
@@ -328,20 +351,8 @@ const PropertyForm = ({
             <Box sx={{ mt: 2 }}>
               {values.geoLocation ? (
                 <PropertyMap 
-                  latitude={values.geoLocation.lat}
-                  longitude={values.geoLocation.lng}
                   address={values.address}
                   height={200}
-                  onLocationChange={(lat, lng) => {
-                    setValues(prev => ({
-                      ...prev,
-                      geoLocation: {
-                        ...prev.geoLocation,
-                        lat,
-                        lng
-                      }
-                    }));
-                  }}
                 />
               ) : (
                 <Paper 
@@ -641,12 +652,7 @@ const PropertyForm = ({
                         select
                         label="高度地区"
                         value={values.heightDistrict || HeightDistrictType.NONE}
-                        onChange={(e) => {
-                          setValues({
-                            ...values,
-                            heightDistrict: e.target.value as HeightDistrictType
-                          });
-                        }}
+                        onChange={handleChange}
                         disabled={isSubmitting}
                       >
                         <MenuItem value={HeightDistrictType.NONE}>指定なし</MenuItem>
@@ -670,12 +676,7 @@ const PropertyForm = ({
                           endAdornment: <InputAdornment position="end">m</InputAdornment>,
                         }}
                         value={values.northBoundaryDistance || ''}
-                        onChange={(e) => {
-                          setValues({
-                            ...values,
-                            northBoundaryDistance: e.target.value ? parseFloat(e.target.value) : undefined
-                          });
-                        }}
+                        onChange={handleChange}
                         disabled={isSubmitting}
                         helperText="北側斜線制限計算に使用します"
                       />
@@ -696,16 +697,7 @@ const PropertyForm = ({
                         value={values.shadowRegulationDetail?.measurementHeight || '4'}
                         onChange={(e) => {
                           const value = e.target.value ? parseFloat(e.target.value) : 4;
-                          const shadowRegulationDetail = { 
-                            ...values.shadowRegulationDetail || {
-                              hourRanges: { primary: 4, secondary: 2.5 }
-                            }, 
-                            measurementHeight: value 
-                          };
-                          setValues({
-                            ...values,
-                            shadowRegulationDetail
-                          });
+                          handleShadowRegulationDetailChange(value);
                         }}
                         disabled={isSubmitting || values.shadowRegulation === ShadowRegulationType.NONE}
                       />
@@ -720,12 +712,7 @@ const PropertyForm = ({
                         label="地区計画名"
                         value={values.districtPlanInfo?.name || ''}
                         onChange={(e) => {
-                          const name = e.target.value;
-                          const districtPlanInfo = { ...values.districtPlanInfo || {}, name };
-                          setValues({
-                            ...values,
-                            districtPlanInfo
-                          });
+                          handleDistrictPlanInfoChange('name', e.target.value);
                         }}
                         disabled={isSubmitting}
                         placeholder="例: 福岡市○○地区地区計画"
@@ -747,14 +734,7 @@ const PropertyForm = ({
                         value={values.districtPlanInfo?.wallSetbackDistance || ''}
                         onChange={(e) => {
                           const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                          const districtPlanInfo = { 
-                            ...values.districtPlanInfo || { name: '' }, 
-                            wallSetbackDistance: value 
-                          };
-                          setValues({
-                            ...values,
-                            districtPlanInfo
-                          });
+                          handleDistrictPlanInfoChange('wallSetbackDistance', value);
                         }}
                         disabled={isSubmitting}
                       />
@@ -775,14 +755,7 @@ const PropertyForm = ({
                         value={values.districtPlanInfo?.maxHeight || ''}
                         onChange={(e) => {
                           const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                          const districtPlanInfo = { 
-                            ...values.districtPlanInfo || { name: '' }, 
-                            maxHeight: value 
-                          };
-                          setValues({
-                            ...values,
-                            districtPlanInfo
-                          });
+                          handleDistrictPlanInfoChange('maxHeight', value);
                         }}
                         disabled={isSubmitting}
                       />
@@ -880,7 +853,7 @@ const PropertyForm = ({
             color="primary"
             startIcon={<ArrowForwardIcon />}
             disabled={isSubmitting}
-            onClick={(e) => handleSubmit(e, true)}
+            onClick={(e: React.MouseEvent) => handleSubmit(e, true)}
             sx={{ ml: 1 }}
           >
             {isEditing ? '更新して物件詳細へ' : '登録して物件詳細へ'}

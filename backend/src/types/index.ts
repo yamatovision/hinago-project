@@ -99,19 +99,17 @@ export enum AssetType {
   HOTEL = 'hotel', // ホテル
 }
 
-// 文書タイプの列挙型
-export enum DocumentType {
-  SURVEY = 'survey', // 測量図
-  LEGAL = 'legal', // 法的書類
-  PLAN = 'plan', // 計画書
-  REPORT = 'report', // レポート
-  OTHER = 'other', // その他
-}
 
 // 境界点座標の型
 export interface BoundaryPoint {
   x: number; // X座標
   y: number; // Y座標
+}
+
+// 地理的位置情報の型
+export interface GeoLocation {
+  latitude: number; // 緯度
+  longitude: number; // 経度
 }
 
 // 敷地形状の型
@@ -121,6 +119,7 @@ export interface PropertyShape {
   depth?: number; // 敷地奥行
   sourceFile?: string; // 測量図ファイルのURL
 }
+
 
 // 地区計画情報（追加）
 export interface DistrictPlanInfo {
@@ -174,6 +173,7 @@ export interface PropertyBase {
   status?: PropertyStatus; // 物件ステータス
   notes?: string; // 備考・メモ
   shapeData?: PropertyShape; // 敷地形状データ
+  geoLocation?: GeoLocation; // 地理的位置情報
   
   // 新規追加フィールド（すべて任意）
   heightDistrict?: HeightDistrictType;   // 高度地区
@@ -201,7 +201,6 @@ export interface Property extends PropertyBase, Timestamps {
 // 物件詳細の型（関連エンティティを含む）
 export interface PropertyDetail extends Property {
   volumeChecks?: VolumeCheck[]; // 関連するボリュームチェック結果
-  documents?: Document[]; // 関連する文書
 }
 
 // 階別データの型
@@ -338,18 +337,6 @@ export interface Scenario extends Timestamps {
   userId?: ID; // 作成したユーザーID
 }
 
-// 文書の型（DBモデルに対応）
-export interface Document extends Timestamps {
-  id: ID;
-  propertyId: ID; // 関連物件ID
-  name: string; // ファイル名
-  fileType: string; // ファイル種類 (MIME Type)
-  fileSize: number; // ファイルサイズ (bytes)
-  fileUrl: string; // ファイルURL
-  documentType: DocumentType; // 文書タイプ
-  description?: string; // 説明
-  userId?: ID; // アップロードしたユーザーID
-}
 
 // 更新履歴エントリの型
 export interface HistoryEntry extends Timestamps {
@@ -359,6 +346,7 @@ export interface HistoryEntry extends Timestamps {
   action: string; // 実行したアクション
   details: string; // 変更の詳細
 }
+
 
 /**
  * =================
@@ -546,6 +534,51 @@ export const FIXED_ADMIN_USER: AuthUser = {
  * =================
  */
 export const VALIDATION_RULES = {
+  // 認証バリデーション
+  AUTH: {
+    email: { required: true, email: true, maxLength: 100 },
+    password: { required: true, minLength: 6, maxLength: 100 },
+  },
+  
+  // 物件バリデーション
+  PROPERTY: {
+    name: { required: true, minLength: 1, maxLength: 100 },
+    address: { required: true, minLength: 3, maxLength: 200 },
+    area: { required: true, min: 0.1, max: 100000 },
+    zoneType: { required: true },
+    fireZone: { required: true },
+    buildingCoverage: { required: true, min: 0, max: 100 },
+    floorAreaRatio: { required: true, min: 0, max: 1000 },
+    price: { required: false, min: 0 },
+    geoLocation: { required: false },
+  },
+  
+  // ジオコーディングバリデーション
+  GEO: {
+    address: { required: true, minLength: 3, maxLength: 200 },
+    lat: { required: true, min: -90, max: 90 },
+    lng: { required: true, min: -180, max: 180 },
+  },
+  
+  // ボリュームチェックバリデーション
+  VOLUME_CHECK: {
+    assetType: { required: true },
+    floorHeight: { required: true, min: 2, max: 10 },
+    commonAreaRatio: { required: true, min: 0, max: 100 },
+    floors: { required: true, min: 1, max: 100 },
+    roadWidth: { required: false, min: 0 },
+  },
+  
+  // 収益性試算バリデーション
+  FINANCIAL: {
+    rentPerSqm: { required: true, min: 0 },
+    occupancyRate: { required: true, min: 0, max: 100 },
+    managementCostRate: { required: true, min: 0, max: 100 },
+    constructionCostPerSqm: { required: true, min: 0 },
+    rentalPeriod: { required: true, min: 1, max: 100 },
+    capRate: { required: true, min: 0, max: 20 },
+  },
+  
   // レポート生成バリデーション
   REPORT: {
     type: { required: true, enum: Object.values(ReportType) },

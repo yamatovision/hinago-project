@@ -2,7 +2,7 @@
  * ダッシュボードページ
  * 物件一覧を表示する
  */
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -145,16 +145,17 @@ const DashboardPage = () => {
         setProperties([]);
         setTotalProperties(0);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('物件データ取得エラー:', err);
       
       // 詳細なエラー情報をログに出力
-      if (err.message) console.error('エラーメッセージ:', err.message);
-      if (err.stack) console.error('スタックトレース:', err.stack);
-      if (err.response) console.error('レスポンス:', err.response);
+      const error = err as Error;
+      if (error.message) console.error('エラーメッセージ:', error.message);
+      if (error.stack) console.error('スタックトレース:', error.stack);
+      if ((error as any).response) console.error('レスポンス:', (error as any).response);
       
       // ユーザーに表示するエラーメッセージを設定
-      setError(`物件データの取得中にエラーが発生しました: ${err.message || '不明なエラー'}`);
+      setError(`物件データの取得中にエラーが発生しました: ${err instanceof Error ? err.message : '不明なエラー'}`);
       setProperties([]);
       setTotalProperties(0);
     } finally {
@@ -188,7 +189,7 @@ const DashboardPage = () => {
   };
   
   // フィルター入力変更
-  const handleFilterChange = (event: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+  const handleFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setFilters(prev => ({
       ...prev,
@@ -197,7 +198,7 @@ const DashboardPage = () => {
   };
   
   // ページネーション変更
-  const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, newPage: number) => {
     setPage(newPage);
   };
   
@@ -419,7 +420,7 @@ const DashboardPage = () => {
                           <IconButton
                             size="small"
                             color="primary"
-                            onClick={(e) => handleVolumeCheck(e, property.id)}
+                            onClick={(e: React.MouseEvent) => handleVolumeCheck(e, property.id)}
                           >
                             <ViewInArIcon />
                           </IconButton>
@@ -428,7 +429,7 @@ const DashboardPage = () => {
                           <IconButton
                             size="small"
                             color="primary"
-                            onClick={(e) => handleProfitability(e, property.id)}
+                            onClick={(e: React.MouseEvent) => handleProfitability(e, property.id)}
                           >
                             <CalculateIcon />
                           </IconButton>
@@ -437,7 +438,7 @@ const DashboardPage = () => {
                           <IconButton
                             size="small"
                             color="primary"
-                            onClick={(e) => handleEditProperty(e, property.id)}
+                            onClick={(e: React.MouseEvent) => handleEditProperty(e, property.id)}
                           >
                             <EditIcon />
                           </IconButton>

@@ -84,9 +84,6 @@ const upload = multer({
 // 測量図アップロード用のミドルウェア
 export const uploadSurveyMap = upload.single('file');
 
-// 物件文書アップロード用のミドルウェア
-export const uploadPropertyDocument = upload.single('file');
-
 // ファイルアップロードエラーハンドラー
 export const handleUploadError = (err: any, req: Request, res: any, next: any) => {
   if (err instanceof multer.MulterError) {

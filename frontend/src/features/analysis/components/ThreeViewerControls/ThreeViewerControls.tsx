@@ -3,7 +3,6 @@ import { VolumeCheck } from 'shared';
 import { FloorSelector } from './FloorSelector';
 import { ViewOptions } from './ViewOptions';
 import { ShadowControls } from './ShadowControls';
-import { useThreeStore } from '../ThreeViewer/helpers/useThreeStore';
 
 interface ThreeViewerControlsProps {
   volumeCheck: VolumeCheck | null;

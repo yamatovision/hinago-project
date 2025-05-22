@@ -113,6 +113,12 @@ export interface BoundaryPoint {
   y: number; // Y座標
 }
 
+// 地理的位置情報の型
+export interface GeoLocation {
+  latitude: number; // 緯度
+  longitude: number; // 経度
+}
+
 // 敷地形状の型
 export interface PropertyShape {
   points: BoundaryPoint[]; // 境界点の配列
@@ -121,20 +127,6 @@ export interface PropertyShape {
   sourceFile?: string; // 測量図ファイルのURL
 }
 
-// 地理座標の型
-export interface GeoLocation {
-  lat: number; // 緯度
-  lng: number; // 経度
-  formatted_address?: string; // フォーマット済み住所（APIから返却される場合に使用）
-}
-
-// 地図表示設定の型
-export interface MapViewSettings {
-  zoom: number; // 初期ズームレベル
-  mapType?: string; // 地図種別（通常、航空写真など）
-  showNearbyFacilities?: boolean; // 周辺施設表示フラグ
-  showTraffic?: boolean; // 交通情報表示フラグ
-}
 
 // 地区計画情報（追加）
 export interface DistrictPlanInfo {
@@ -167,6 +159,7 @@ export interface RegulationLimits {
   slopeLimit: number;           // 斜線制限による制限
   shadowLimit: number;          // 日影規制による制限
   absoluteLimit: number;        // 絶対高さ制限
+  districtPlanLimit?: number;   // 地区計画による高さ制限
   finalLimit: number;           // 最終的な制限値（最小値）
 }
 
@@ -187,7 +180,7 @@ export interface PropertyBase {
   status?: PropertyStatus; // 物件ステータス
   notes?: string; // 備考・メモ
   shapeData?: PropertyShape; // 敷地形状データ
-  geoLocation?: GeoLocation; // 位置情報（緯度・経度）
+  geoLocation?: GeoLocation; // 地理的位置情報
   
   // 新規追加フィールド（すべて任意）
   heightDistrict?: HeightDistrictType;   // 高度地区
@@ -215,7 +208,6 @@ export interface Property extends PropertyBase, Timestamps {
 // 物件詳細の型（関連エンティティを含む）
 export interface PropertyDetail extends Property {
   volumeChecks?: VolumeCheck[]; // 関連するボリュームチェック結果
-  documents?: Document[]; // 関連する文書
 }
 
 // 3Dモデルデータの型
@@ -231,6 +223,7 @@ export interface BuildingParams {
   floors: number; // 階数
   roadWidth?: number; // 前面道路幅員 (m)
   assetType: AssetType; // アセットタイプ
+  buildingArea?: number; // 建築面積 (m²) - 建築パラメータで指定される場合
 }
 
 // 階別データの型
@@ -297,6 +290,8 @@ export interface AnnualFinancialData {
   operatingExpenses: number; // 運営支出 (円)
   netOperatingIncome: number; // 年間純収益 (円)
   accumulatedIncome: number; // 累計収益 (円)
+  noi: number; // 純営業収益 (円)
+  cashFlow: number; // キャッシュフロー (円)
 }
 
 // 収益性試算結果の型
@@ -349,27 +344,6 @@ export interface Scenario extends Timestamps {
   userId?: ID; // 作成したユーザーID（将来的なマルチユーザー対応用）
 }
 
-// 文書タイプの列挙型
-export enum DocumentType {
-  SURVEY = 'survey', // 測量図
-  LEGAL = 'legal', // 法的書類
-  PLAN = 'plan', // 計画書
-  REPORT = 'report', // レポート
-  OTHER = 'other', // その他
-}
-
-// 文書の型（DBモデルに対応）
-export interface Document extends Timestamps {
-  id: ID;
-  propertyId: ID; // 関連物件ID
-  name: string; // ファイル名
-  fileType: string; // ファイル種類 (MIME Type)
-  fileSize: number; // ファイルサイズ (bytes)
-  fileUrl: string; // ファイルURL
-  documentType: DocumentType; // 文書タイプ
-  description?: string; // 説明
-  userId?: ID; // アップロードしたユーザーID（将来的なマルチユーザー対応用）
-}
 
 // 更新履歴エントリの型
 export interface HistoryEntry extends Timestamps {
@@ -430,7 +404,16 @@ export enum UserRole {
   GUEST = 'GUEST'  // ゲスト（将来拡張用）
 }
 
-// 認証ユーザーの型
+// ユーザーの型（DBモデルに対応）
+export interface User extends Timestamps {
+  id: ID;
+  email: string;      // メールアドレス
+  name?: string;      // ユーザー名
+  password: string;   // ハッシュ化されたパスワード（保存用）
+  role: UserRole;     // ユーザーロール
+}
+
+// 認証用ユーザー情報（パスワードなどのセキュリティ情報を除いた情報）
 export interface AuthUser {
   id: ID;
   email: string;
@@ -460,6 +443,14 @@ export interface RefreshTokenRequest {
 // リフレッシュトークンレスポンスの型
 export interface RefreshTokenResponse {
   accessToken: string;
+}
+
+// リフレッシュトークンの型（DBモデルに対応）
+export interface RefreshToken extends Timestamps {
+  id: ID;
+  userId: ID;        // ユーザーID
+  token: string;     // トークン文字列
+  expiresAt: Date;   // 有効期限
 }
 
 // JWT Payloadの型

@@ -1,7 +1,7 @@
 /**
  * ボリュームチェック入力フォームコンポーネント
  */
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -9,13 +9,8 @@ import {
   Grid,
   TextField,
   Paper,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   CircularProgress,
   Alert,
-  IconButton,
 } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import { BuildingParams, AssetType, Property } from 'shared';
@@ -70,7 +65,7 @@ const VolumeCheckForm = ({ property, onVolumeCheckComplete }: VolumeCheckFormPro
   const [selectedAssetTypeIndex, setSelectedAssetTypeIndex] = useState(1); // オフィスをデフォルト選択
   
   // フォーム値変更ハンドラ
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormValues(prev => ({
       ...prev,
@@ -105,9 +100,9 @@ const VolumeCheckForm = ({ property, onVolumeCheckComplete }: VolumeCheckFormPro
       } else {
         setError('ボリュームチェックの実行に失敗しました。再度お試しください。');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('ボリュームチェック実行エラー:', err);
-      setError(`エラーが発生しました: ${err.message || '不明なエラー'}`);
+      setError(`エラーが発生しました: ${err instanceof Error ? err.message : '不明なエラー'}`);
     } finally {
       setLoading(false);
     }

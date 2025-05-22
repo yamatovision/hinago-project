@@ -9,16 +9,14 @@ import {
   InputAdornment,
   Button,
   Chip,
-  Divider,
-  FormControl,
-  FormHelperText,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
   CircularProgress,
-  Alert
+  Alert,
+  Collapse
 } from '@mui/material';
 import {
   Apartment as ApartmentIcon,
@@ -28,9 +26,10 @@ import {
   ArrowBack as ArrowBackIcon,
   Delete as DeleteIcon,
   ContentCopy as ContentCopyIcon,
-  Save as SaveIcon
+  Save as SaveIcon,
+  KeyboardArrowRight as KeyboardArrowRightIcon
 } from '@mui/icons-material';
-import { PropertyDetail, ZoneType, FireZoneType, ShadowRegulationType, PropertyStatus } from 'shared';
+import { PropertyDetail, ZoneType, FireZoneType, ShadowRegulationType, PropertyStatus, HeightDistrictType, DistrictPlanInfo } from 'shared';
 import { updateProperty, deleteProperty } from '../../api/properties';
 import { PropertyMap } from '../Map';
 
@@ -60,7 +59,15 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({ property, setProperty }) =>
     roadWidth: property.roadWidth || 0,
     price: property.price || 0,
     status: property.status || PropertyStatus.NEW,
-    notes: property.notes || ''
+    notes: property.notes || '',
+    // 詳細規制情報
+    heightDistrict: property.heightDistrict || HeightDistrictType.NONE,
+    northBoundaryDistance: property.northBoundaryDistance || 0,
+    shadowRegulationDetail: property.shadowRegulationDetail || {
+      measurementHeight: 4,
+      hourRanges: { primary: 4, secondary: 2.5 }
+    },
+    districtPlanInfo: property.districtPlanInfo || { name: '' }
   });
   
   // UI状態
@@ -68,6 +75,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({ property, setProperty }) =>
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // 許容建築面積の計算
   const allowedBuildingArea = formData.area * (formData.buildingCoverage / 100);
@@ -82,7 +90,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({ property, setProperty }) =>
     const { name, value } = e.target;
     
     // 数値型のフィールドを処理
-    if (['area', 'buildingCoverage', 'floorAreaRatio', 'heightLimit', 'roadWidth', 'price'].includes(name)) {
+    if (['area', 'buildingCoverage', 'floorAreaRatio', 'heightLimit', 'roadWidth', 'price', 'northBoundaryDistance'].includes(name)) {
       setFormData({
         ...formData,
         [name]: value === '' ? 0 : parseFloat(value)
@@ -93,6 +101,30 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({ property, setProperty }) =>
         [name]: value
       });
     }
+  };
+
+  // 日影規制詳細のハンドラ
+  const handleShadowRegulationDetailChange = (value: number) => {
+    const shadowRegulationDetail = { 
+      ...formData.shadowRegulationDetail,
+      measurementHeight: value 
+    };
+    setFormData({
+      ...formData,
+      shadowRegulationDetail
+    });
+  };
+
+  // 地区計画情報のハンドラ
+  const handleDistrictPlanInfoChange = (field: keyof DistrictPlanInfo, value: string | number | undefined) => {
+    const districtPlanInfo = { 
+      ...formData.districtPlanInfo,
+      [field]: value 
+    };
+    setFormData({
+      ...formData,
+      districtPlanInfo
+    });
   };
 
   // フォーム送信ハンドラ
@@ -201,8 +233,6 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({ property, setProperty }) =>
             <Box sx={{ mt: 2 }}>
               {property.geoLocation ? (
                 <PropertyMap 
-                  latitude={property.geoLocation.lat}
-                  longitude={property.geoLocation.lng}
                   address={property.address}
                   height={200}
                   interactive={false}
@@ -419,6 +449,140 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({ property, setProperty }) =>
             />
           </Grid>
         </Grid>
+        
+        {/* 詳細規制情報の表示切り替え */}
+        <Box sx={{ mt: 2 }}>
+          <Button
+            color="primary"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            startIcon={
+              <KeyboardArrowRightIcon 
+                sx={{ 
+                  transform: showAdvanced ? 'rotate(90deg)' : 'none',
+                  transition: 'transform 0.3s'
+                }}
+              />
+            }
+            sx={{ textTransform: 'none' }}
+          >
+            詳細規制情報を{showAdvanced ? '隠す' : '表示'}
+          </Button>
+          
+          <Collapse in={showAdvanced}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Grid container spacing={3}>
+                {/* 高度地区 */}
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    select
+                    label="高度地区"
+                    name="heightDistrict"
+                    value={formData.heightDistrict}
+                    onChange={handleChange}
+                    margin="normal"
+                  >
+                    <MenuItem value={HeightDistrictType.NONE}>指定なし</MenuItem>
+                    <MenuItem value={HeightDistrictType.FIRST_10M}>第一種10M高度地区</MenuItem>
+                    <MenuItem value={HeightDistrictType.FIRST_15M}>第一種15M高度地区</MenuItem>
+                    <MenuItem value={HeightDistrictType.SECOND_15M}>第二種15M高度地区</MenuItem>
+                    <MenuItem value={HeightDistrictType.SECOND_20M}>第二種20M高度地区</MenuItem>
+                  </TextField>
+                </Grid>
+                
+                {/* 北側境界線距離 */}
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="北側境界線までの距離"
+                    name="northBoundaryDistance"
+                    value={formData.northBoundaryDistance || ''}
+                    onChange={handleChange}
+                    margin="normal"
+                    InputProps={{
+                      inputProps: { min: 0, step: 0.1 },
+                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                    }}
+                    helperText="北側斜線制限計算に使用します"
+                  />
+                </Grid>
+
+                {/* 日影規制詳細 - 測定面の高さ */}
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="日影規制測定面の高さ"
+                    value={formData.shadowRegulationDetail?.measurementHeight || 4}
+                    onChange={(e) => {
+                      const value = e.target.value ? parseFloat(e.target.value) : 4;
+                      handleShadowRegulationDetailChange(value);
+                    }}
+                    margin="normal"
+                    InputProps={{
+                      inputProps: { min: 0, step: 0.1 },
+                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                    }}
+                    disabled={formData.shadowRegulation === ShadowRegulationType.NONE}
+                  />
+                </Grid>
+
+                {/* 地区計画名 */}
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="地区計画名"
+                    value={formData.districtPlanInfo?.name || ''}
+                    onChange={(e) => {
+                      handleDistrictPlanInfoChange('name', e.target.value);
+                    }}
+                    margin="normal"
+                    placeholder="例: 福岡市○○地区地区計画"
+                  />
+                </Grid>
+                
+                {/* 壁面後退距離 */}
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="壁面後退距離"
+                    value={formData.districtPlanInfo?.wallSetbackDistance || ''}
+                    onChange={(e) => {
+                      const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                      handleDistrictPlanInfoChange('wallSetbackDistance', value);
+                    }}
+                    margin="normal"
+                    InputProps={{
+                      inputProps: { min: 0, step: 0.1 },
+                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                
+                {/* 地区計画最高高さ */}
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="地区計画高さ制限"
+                    value={formData.districtPlanInfo?.maxHeight || ''}
+                    onChange={(e) => {
+                      const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                      handleDistrictPlanInfoChange('maxHeight', value);
+                    }}
+                    margin="normal"
+                    InputProps={{
+                      inputProps: { min: 0, step: 0.1 },
+                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          </Collapse>
+        </Box>
       </Box>
       
       {/* タグセクション */}

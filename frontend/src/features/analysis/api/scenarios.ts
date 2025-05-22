@@ -38,10 +38,27 @@ export const createScenario = async (
 
 /**
  * シナリオ一覧を取得
+ * @param volumeCheckId ボリュームチェックID（オプション）
+ * @param propertyId 物件ID（オプション）
  * @returns シナリオ一覧
  */
-export const getScenarios = async (): Promise<Scenario[] | null> => {
-  const response = await get<Scenario[]>(API_PATHS.ANALYSIS.SCENARIOS);
+export const getScenarios = async (volumeCheckId?: ID, propertyId?: ID): Promise<Scenario[] | null> => {
+  // クエリパラメータを構築
+  const params = new URLSearchParams();
+  if (volumeCheckId) {
+    params.append('volumeCheckId', volumeCheckId);
+  }
+  if (propertyId) {
+    params.append('propertyId', propertyId);
+  }
+  
+  const url = params.toString() 
+    ? `${API_PATHS.ANALYSIS.SCENARIOS}?${params.toString()}`
+    : API_PATHS.ANALYSIS.SCENARIOS;
+  
+  console.log('getScenarios APIリクエスト URL:', url);
+  
+  const response = await get<Scenario[]>(url);
 
   if (response.success && response.data) {
     return response.data;

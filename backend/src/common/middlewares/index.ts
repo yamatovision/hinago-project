@@ -6,7 +6,6 @@ import { validate } from './validation.middleware';
 import { authRequired, hasRole, adminOnly, rateLimiter } from './auth.middleware';
 import { 
   uploadSurveyMap, 
-  uploadPropertyDocument, 
   handleUploadError, 
   getFileUrl, 
   extractShapeFromFile 
@@ -24,7 +23,6 @@ export {
   adminOnly,
   rateLimiter,
   uploadSurveyMap,
-  uploadPropertyDocument,
   handleUploadError,
   getFileUrl,
   extractShapeFromFile,

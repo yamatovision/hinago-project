@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
   TextField,
   Button,
   Paper,
-  Grid,
   CircularProgress,
   Alert,
   Snackbar,
@@ -154,7 +153,7 @@ const ScenarioForm: React.FC<ScenarioFormProps> = ({
   };
   
   return (
-    <Box component="form" onSubmit={(e) => handleSubmit(e, false)} sx={{ mt: 2 }}>
+    <Box component="form" onSubmit={(e: React.FormEvent) => handleSubmit(e, false)} sx={{ mt: 2 }}>
       <Paper elevation={1} sx={{ p: 3 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
           <Typography variant="h6">
@@ -166,7 +165,7 @@ const ScenarioForm: React.FC<ScenarioFormProps> = ({
           fullWidth
           label="シナリオ名"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
           margin="normal"
           required
         />
@@ -216,7 +215,7 @@ const ScenarioForm: React.FC<ScenarioFormProps> = ({
                 color="success"
                 startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
                 disabled={loading}
-                onClick={(e) => handleSubmit(e, true)}
+                onClick={(e: React.MouseEvent) => handleSubmit(e, true)}
               >
                 保存して試算実行
               </Button>

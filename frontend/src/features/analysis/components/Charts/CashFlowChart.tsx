@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,10 +10,9 @@ import {
   Title,
   Tooltip,
   Legend,
-  ChartOptions
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
-import { ProfitabilityResult, AnnualFinancialData } from 'shared';
+import { Chart } from 'react-chartjs-2';
+import { ProfitabilityResult } from 'shared';
 
 ChartJS.register(
   CategoryScale,
@@ -76,7 +75,7 @@ const CashFlowChart: React.FC<CashFlowChartProps> = ({ profitability }) => {
     ]
   };
   
-  const options: ChartOptions<'bar'> = {
+  const options = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -92,7 +91,7 @@ const CashFlowChart: React.FC<CashFlowChartProps> = ({ profitability }) => {
       },
       tooltip: {
         callbacks: {
-          label: function(context) {
+          label: function(context: any) {
             return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}百万円`;
           }
         }
@@ -133,7 +132,7 @@ const CashFlowChart: React.FC<CashFlowChartProps> = ({ profitability }) => {
   
   return (
     <Box sx={{ height: 400, position: 'relative' }}>
-      <Bar options={options} data={data} />
+      <Chart type="bar" options={options} data={data} />
     </Box>
   );
 };

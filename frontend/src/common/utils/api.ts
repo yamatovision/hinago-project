@@ -3,10 +3,8 @@
  */
 import { ApiResponse } from 'shared';
 
-// APIのベースURL
-// 開発環境ではプロキシ経由でAPIにアクセス
-// Viteの設定でプロキシされるため、相対パスを使用
-const API_BASE_URL = 'http://localhost:8080';
+// APIのベースURL - 環境変数から取得
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 /**
  * HTTPリクエストを送信する共通関数
@@ -33,7 +31,15 @@ export async function fetchApi<T>(
   // APIのベースURLを追加
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
   
-  console.log(`APIリクエスト: ${options.method || 'GET'} ${fullUrl}`);
+  console.log(`=== APIリクエスト開始 ===`);
+  console.log(`メソッド: ${options.method || 'GET'}`);
+  console.log(`URL: ${fullUrl}`);
+  console.log(`環境: ${import.meta.env.VITE_ENV || 'unknown'}`);
+  console.log(`APIベースURL: ${API_BASE_URL}`);
+  console.log(`ヘッダー:`, headers);
+  if (options.body) {
+    console.log(`リクエストボディ:`, options.body);
+  }
   
   try {
     // リクエストを送信
@@ -42,24 +48,27 @@ export async function fetchApi<T>(
       headers,
     });
 
-    console.log(`APIステータスコード: ${response.status} ${response.statusText}`);
+    console.log(`=== レスポンス受信 ===`);
+    console.log(`ステータス: ${response.status} ${response.statusText}`);
+    console.log(`Content-Type:`, response.headers.get('content-type'));
     
     // DELETEリクエストで204レスポンスの場合は成功として処理
     if (options.method === 'DELETE' && response.status === 204) {
+      console.log('DELETE 204 レスポンス - 成功として処理');
       return {
         success: true,
-        data: null,
+        data: undefined,
       };
     }
     
     // レスポンスが空の場合はエラー
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
-      console.error('APIレスポンスがJSONではありません:', {
-        status: response.status,
-        statusText: response.statusText,
-        contentType
-      });
+      console.error('=== レスポンス形式エラー ===');
+      console.error('Content-Type:', contentType);
+      console.error('レスポンスボディ (テキスト):');
+      const responseText = await response.text();
+      console.error(responseText);
       
       return {
         success: false,
@@ -69,14 +78,14 @@ export async function fetchApi<T>(
     
     // JSONレスポンスを解析
     const data = await response.json();
+    console.log('=== JSONレスポンスデータ ===');
+    console.log('パースしたデータ:', JSON.stringify(data, null, 2));
 
     // エラーレスポンスの場合
     if (!response.ok) {
-      console.error('APIエラーレスポンス:', {
-        status: response.status,
-        statusText: response.statusText,
-        data
-      });
+      console.error('=== APIエラーレスポンス ===');
+      console.error('ステータス:', response.status, response.statusText);
+      console.error('エラーデータ:', data);
       
       return {
         success: false,
@@ -84,6 +93,10 @@ export async function fetchApi<T>(
       };
     }
 
+    console.log('=== API成功レスポンス ===');
+    console.log('dataフィールド:', data.data);
+    console.log('metaフィールド:', data.meta);
+    
     // 成功レスポンスを返却
     return {
       success: true,

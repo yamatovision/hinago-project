@@ -3,13 +3,11 @@ import { Box, Tabs, Tab, Typography } from '@mui/material';
 import { 
   Apartment as ApartmentIcon, 
   Map as MapIcon, 
-  Folder as FolderIcon, 
   History as HistoryIcon,
   Info as InfoIcon
 } from '@mui/icons-material';
 import { PropertyDetail } from 'shared';
 import BasicInfoTab from './BasicInfoTab';
-import DocumentsTab from './DocumentsTab';
 import HistoryTab from './HistoryTab';
 import PropertyShapeTab from './PropertyShapeTab';
 
@@ -54,7 +52,7 @@ interface PropertyDetailTabsProps {
 const PropertyDetailTabs: React.FC<PropertyDetailTabsProps> = ({ property, setProperty }) => {
   const [tabValue, setTabValue] = useState(0);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
@@ -83,17 +81,10 @@ const PropertyDetailTabs: React.FC<PropertyDetailTabsProps> = ({ property, setPr
             iconPosition="start"
           />
           <Tab
-            icon={<FolderIcon />}
-            label="図面・資料"
-            id="property-tab-2"
-            aria-controls="property-tabpanel-2"
-            iconPosition="start"
-          />
-          <Tab
             icon={<HistoryIcon />}
             label="更新履歴"
-            id="property-tab-3"
-            aria-controls="property-tabpanel-3"
+            id="property-tab-2"
+            aria-controls="property-tabpanel-2"
             iconPosition="start"
           />
         </Tabs>
@@ -121,19 +112,8 @@ const PropertyDetailTabs: React.FC<PropertyDetailTabsProps> = ({ property, setPr
         <PropertyShapeTab property={property} setProperty={setProperty} />
       </TabPanel>
 
-      {/* 図面・資料タブ */}
-      <TabPanel value={tabValue} index={2}>
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="primary" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <InfoIcon fontSize="small" sx={{ mr: 1 }} />
-            物件に関連する測量図や資料をアップロードしてください。測量図は敷地形状やボリュームチェックの精度向上に役立ちます。
-          </Typography>
-        </Box>
-        <DocumentsTab property={property} />
-      </TabPanel>
-
       {/* 更新履歴タブ */}
-      <TabPanel value={tabValue} index={3}>
+      <TabPanel value={tabValue} index={2}>
         <HistoryTab property={property} />
       </TabPanel>
     </Box>

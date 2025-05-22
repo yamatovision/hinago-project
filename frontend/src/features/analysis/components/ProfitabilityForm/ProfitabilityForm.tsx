@@ -4,24 +4,16 @@ import {
   Box,
   Button,
   Paper,
-  Divider,
   Grid,
   CircularProgress,
   Alert,
   Snackbar,
-  Tab,
-  Tabs,
   ToggleButtonGroup,
   ToggleButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   TextField,
 } from '@mui/material';
 import {
   Calculate as CalculateIcon,
-  Save as SaveIcon,
   Apartment as ApartmentIcon,
   Business as BusinessIcon,
   Home as HomeIcon,
@@ -103,7 +95,7 @@ export const ProfitabilityForm: React.FC<ProfitabilityFormProps> = ({
   }, [assetType, initialParams]);
 
   const handleAssetTypeChange = (
-    event: React.MouseEvent<HTMLElement>,
+    _event: React.MouseEvent<HTMLElement>,
     newAssetType: AssetType | null
   ) => {
     if (newAssetType !== null) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -219,7 +219,7 @@ const SensitivityChart: React.FC<SensitivityChartProps> = ({ profitability, type
       },
       tooltip: {
         callbacks: {
-          label: function(context) {
+          label: function(context: any) {
             return `${context.dataset.label}: ${getTooltipLabel(context.parsed.y)}`;
           }
         }

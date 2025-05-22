@@ -57,7 +57,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
         shadows
       >
         {/* 環境設定 */}
-        <color attach="background" args={['#f0f0f0']} />
+        <color attach="background" args={[240/255, 240/255, 240/255]} />
         <fog attach="fog" args={['#f0f0f0', 30, 100]} />
         <Lighting />
         <Environment preset="city" />

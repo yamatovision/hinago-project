@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import { VolumeCheck, Property, ShadowSimulationResult } from 'shared';
+import { VolumeCheck, Property } from 'shared';
 import { useFrame } from '@react-three/fiber';
 import { useThreeStore } from './helpers/useThreeStore';
 
@@ -36,12 +36,12 @@ export const ShadowVisualization: React.FC<ShadowVisualizationProps> = ({
   const animationRef = useRef<boolean>(timePoint === undefined);
   
   // グローバルstate
-  const { shadowState, setShadowState } = useThreeStore();
+  const { setShadowState } = useThreeStore();
   
   // 日影計算のために必要なデータが揃っているかチェック
   const hasRequiredData = useMemo(() => {
     return (
-      property?.shapeData?.points?.length > 0 &&
+      property?.shapeData?.points && property.shapeData.points.length > 0 &&
       volumeCheck?.shadowSimulation !== undefined
     );
   }, [property, volumeCheck]);
@@ -91,7 +91,7 @@ export const ShadowVisualization: React.FC<ShadowVisualizationProps> = ({
     if (!hasRequiredData || !showShadowMap || !volumeCheck.shadowSimulation?.isochroneMap) return null;
     
     const isochroneMap = volumeCheck.shadowSimulation.isochroneMap;
-    const { xMin, xMax, yMin, yMax, gridData, resolution } = isochroneMap;
+    const { xMin, xMax, yMin, yMax, gridData } = isochroneMap;
     
     // マップのサイズ
     const width = xMax - xMin;

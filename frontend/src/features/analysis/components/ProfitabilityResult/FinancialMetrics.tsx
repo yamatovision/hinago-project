@@ -1,10 +1,8 @@
 import React from 'react';
 import {
-  Box,
   Typography,
   Paper,
   Grid,
-  useTheme
 } from '@mui/material';
 import { ProfitabilityResult } from 'shared';
 
@@ -13,7 +11,6 @@ interface FinancialMetricsProps {
 }
 
 const FinancialMetrics: React.FC<FinancialMetricsProps> = ({ profitability }) => {
-  const theme = useTheme();
 
   // 財務指標の評価を行う関数
   const evaluateMetric = (type: 'irr' | 'noiYield' | 'paybackPeriod' | 'npv') => {

@@ -11,15 +11,12 @@ import {
   validateCreateProperty, 
   validateUpdateProperty,
   validateUploadSurvey,
-  validateUpdateShape,
-  validateUploadDocument,
-  validateListDocuments,
-  validateDeleteDocument
+  validateUpdateShape
 } from './properties.validator';
 import { validateId } from '../../common/validators/common.validator';
 import { validate } from '../../common/middlewares/validation.middleware';
 import { authRequired } from '../../common/middlewares/auth.middleware';
-import { uploadSurveyMap, uploadPropertyDocument, handleUploadError } from '../../common/middlewares';
+import { uploadSurveyMap, handleUploadError } from '../../common/middlewares';
 
 const router = express.Router();
 
@@ -109,42 +106,5 @@ router.delete(
   propertiesController.deleteProperty
 );
 
-/**
- * @route POST /api/v1/properties/:propertyId/documents
- * @desc 物件関連文書をアップロード
- * @access 認証済みユーザー
- */
-router.post(
-  '/:propertyId/documents',
-  authRequired,
-  validateUploadDocument,
-  uploadPropertyDocument,
-  handleUploadError,
-  propertiesController.uploadDocument
-);
-
-/**
- * @route GET /api/v1/properties/:propertyId/documents
- * @desc 物件の文書一覧を取得
- * @access 認証済みユーザー
- */
-router.get(
-  '/:propertyId/documents',
-  authRequired,
-  validateListDocuments,
-  propertiesController.getDocuments
-);
-
-/**
- * @route DELETE /api/v1/properties/:propertyId/documents/:documentId
- * @desc 物件の文書を削除
- * @access 認証済みユーザー（所有者または管理者）
- */
-router.delete(
-  '/:propertyId/documents/:documentId',
-  authRequired,
-  validateDeleteDocument,
-  propertiesController.deleteDocument
-);
 
 export default router;

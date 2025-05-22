@@ -7,7 +7,7 @@ interface FloorSelectorProps {
 }
 
 export const FloorSelector: React.FC<FloorSelectorProps> = ({ volumeCheck }) => {
-  const { showFloors, setShowFloors } = useThreeStore();
+  const { setShowFloors } = useThreeStore();
   const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
   const [showAllFloors, setShowAllFloors] = useState(true);
   
@@ -36,7 +36,7 @@ export const FloorSelector: React.FC<FloorSelectorProps> = ({ volumeCheck }) => 
     const allSelected = volumeCheck && 
       updatedFloors.length === volumeCheck.floors;
     
-    setShowAllFloors(allSelected);
+    setShowAllFloors(!!allSelected);
     
     // 表示する階を更新
     setShowFloors(allSelected ? undefined : updatedFloors);
