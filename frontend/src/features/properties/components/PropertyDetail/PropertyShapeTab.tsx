@@ -16,7 +16,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
+  DialogActions,
+  Stepper,
+  Step,
+  StepLabel
 } from '@mui/material';
 import {
   Map as MapIcon,
@@ -24,10 +27,11 @@ import {
   Edit as EditIcon,
   Refresh as RefreshIcon,
   Save as SaveIcon,
-  FileUpload as FileUploadIcon
+  FileUpload as FileUploadIcon,
 } from '@mui/icons-material';
-import { PropertyDetail, PropertyShape, BoundaryPoint } from 'shared';
+import { PropertyDetail, PropertyShape, BoundaryPoint, CoordinateExtractionResult } from 'shared';
 import { updatePropertyShape, uploadSurveyAndExtractShape } from '../../api/shape';
+import { CoordinateInputForm } from '../CoordinateInput';
 
 interface PropertyShapeTabProps {
   property: PropertyDetail;
@@ -49,6 +53,9 @@ const PropertyShapeTab: React.FC<PropertyShapeTabProps> = ({ property, setProper
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
+  const [showCoordinateInput, setShowCoordinateInput] = useState(false);
+  const [extractionResult, setExtractionResult] = useState<CoordinateExtractionResult | null>(null);
   
   // ファイル入力参照
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -161,26 +168,48 @@ const PropertyShapeTab: React.FC<PropertyShapeTabProps> = ({ property, setProper
       const extractedShape = await uploadSurveyAndExtractShape(selectedFile, property.id);
       
       if (extractedShape) {
-        // 物件オブジェクトの更新
-        const updatedProperty = { ...property, shapeData: extractedShape };
-        setProperty(updatedProperty);
-        setShapeData(extractedShape);
-        
-        setSuccess('測量図を解析し、敷地形状を更新しました');
-        
-        // 成功メッセージを数秒後に消す
-        setTimeout(() => {
-          setSuccess(null);
-        }, 3000);
-        
         // ダイアログを閉じる
         handleCloseUploadDialog();
+        
+        // モックの座標データを作成（将来的にはOCRで抽出）
+        const mockExtractionResult: CoordinateExtractionResult = {
+          coordinatePoints: [
+            { id: 'KK1', x: 62206.493, y: -53103.728, length: 22.729 },
+            { id: 'KK2', x: 62220.989, y: -53121.235, length: 21.006 },
+            { id: 'FK3', x: 62204.821, y: -53134.645, length: 11.100 },
+            { id: 'FK4', x: 62211.906, y: -53143.190, length: 11.259 },
+            { id: 'KK5', x: 62219.102, y: -53151.849, length: 19.005 },
+            { id: 'KK6', x: 62203.330, y: -53162.453, length: 14.120 },
+            { id: 'FK7', x: 62189.491, y: -53159.649, length: 12.779 },
+            { id: 'FK8', x: 62179.393, y: -53166.457, length: 33.939 },
+            { id: 'KK9', x: 62160.465, y: -53138.293, length: 0.748 },
+            { id: 'KK10', x: 62161.078, y: -53137.879, length: 10.749 },
+            { id: 'KK11', x: 62169.994, y: -53131.876, length: 20.071 },
+            { id: 'KK12', x: 62158.788, y: -53115.225, length: 23.151 },
+            { id: 'KK13', x: 62178.003, y: -53102.315, length: 19.282 },
+            { id: 'FK14', x: 62190.326, y: -53117.147, length: 21.011 },
+          ],
+          totalArea: 5000.036646,
+          area: 2500.018323,
+          registeredArea: 2500.01,
+          plotNumber: '32',
+          confidence: 0.95,
+          extractedImageUrl: extractedShape.sourceFile
+        };
+        
+        // 座標抽出結果を保存
+        setExtractionResult(mockExtractionResult);
+        
+        // 座標入力フォームを表示
+        setShowCoordinateInput(true);
+        setActiveStep(1);
       } else {
         setError('敷地形状の抽出に失敗しました');
       }
     } catch (err) {
       console.error('測量図アップロードエラー:', err);
-      setError('測量図のアップロード中にエラーが発生しました');
+      const errorMessage = err instanceof Error ? err.message : '測量図のアップロード中にエラーが発生しました';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -226,6 +255,72 @@ const PropertyShapeTab: React.FC<PropertyShapeTabProps> = ({ property, setProper
     setError(null);
   };
   
+  // 座標データ確認後の処理
+  const handleCoordinateConfirm = async (data: CoordinateExtractionResult) => {
+    try {
+      setSaving(true);
+      setError(null);
+      
+      // 座標変換処理（バックエンドで実装したconvertSurveyToDisplayを使用）
+      // ここでは簡易的な変換を実施
+      const minX = Math.min(...data.coordinatePoints.map(p => p.x));
+      const minY = Math.min(...data.coordinatePoints.map(p => p.y));
+      const maxX = Math.max(...data.coordinatePoints.map(p => p.x));
+      const maxY = Math.max(...data.coordinatePoints.map(p => p.y));
+      
+      const width = maxX - minX;
+      const height = maxY - minY;
+      const scale = Math.max(width, height) / 100;
+      
+      const displayPoints: BoundaryPoint[] = data.coordinatePoints.map(p => ({
+        x: (p.x - minX) / scale,
+        y: (maxY - p.y) / scale // Y軸反転
+      }));
+      
+      // 形状データを更新
+      const newShapeData: PropertyShape = {
+        points: displayPoints,
+        width: width / scale,
+        depth: height / scale,
+        sourceFile: shapeData.sourceFile,
+        coordinatePoints: data.coordinatePoints,
+        area: data.area,
+        perimeter: 0, // TODO: 周長計算を実装
+        coordinateSystem: '平面直角座標系',
+        extractionResult: data
+      };
+      
+      // 物件データを更新
+      const updatedProperty = await updatePropertyShape(property.id, newShapeData);
+      
+      if (updatedProperty) {
+        setProperty(updatedProperty);
+        setShapeData(newShapeData);
+        setSuccess('座標データから敷地形状を生成しました');
+        setShowCoordinateInput(false);
+        setActiveStep(2);
+        
+        setTimeout(() => {
+          setSuccess(null);
+        }, 3000);
+      } else {
+        setError('敷地形状データの保存に失敗しました');
+      }
+    } catch (err) {
+      console.error('座標変換エラー:', err);
+      setError('座標データの処理中にエラーが発生しました');
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  // 座標入力キャンセル
+  const handleCoordinateCancel = () => {
+    setShowCoordinateInput(false);
+    setActiveStep(0);
+    setExtractionResult(null);
+  };
+  
   // 編集モード切り替え
   const handleToggleEditMode = () => {
     setEditMode(!editMode);
@@ -243,14 +338,39 @@ const PropertyShapeTab: React.FC<PropertyShapeTabProps> = ({ property, setProper
   
   return (
     <Box>
-      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-        <MapIcon sx={{ mr: 1 }} />
-        敷地形状
-      </Typography>
+      {/* 座標入力フォーム */}
+      {showCoordinateInput && extractionResult && (
+        <CoordinateInputForm
+          initialData={extractionResult}
+          onConfirm={handleCoordinateConfirm}
+          onCancel={handleCoordinateCancel}
+        />
+      )}
       
-      <Typography variant="body2" color="textSecondary" gutterBottom>
-        測量図から抽出した敷地形状データです。境界点の座標を編集したり、敷地形状を手動で調整できます。
-      </Typography>
+      {/* 通常の敷地形状管理UI */}
+      {!showCoordinateInput && (
+        <>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+            <MapIcon sx={{ mr: 1 }} />
+            敷地形状
+          </Typography>
+          
+          {/* ステップ表示 */}
+          <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
+            <Step>
+              <StepLabel>測量図アップロード</StepLabel>
+            </Step>
+            <Step>
+              <StepLabel>座標データ確認</StepLabel>
+            </Step>
+            <Step>
+              <StepLabel>形状生成完了</StepLabel>
+            </Step>
+          </Stepper>
+          
+          <Typography variant="body2" color="textSecondary" gutterBottom>
+            測量図から抽出した敷地形状データです。境界点の座標を編集したり、敷地形状を手動で調整できます。
+          </Typography>
       
       {/* 測量図アップロードボタン */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
@@ -427,6 +547,8 @@ const PropertyShapeTab: React.FC<PropertyShapeTabProps> = ({ property, setProper
           </Button>
         </DialogActions>
       </Dialog>
+        </>
+      )}
     </Box>
   );
 };

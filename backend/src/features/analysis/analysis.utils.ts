@@ -29,6 +29,8 @@ import {
   simulateShadow,
   generateBuildingShape
 } from './regulation';
+import { generateBuildingFromPropertyShape, generateAdvancedBuildingShape, calculatePolygonArea } from './utils/buildingShapeGenerator';
+import { analyzeBoundaries, determineSetbackDistances, BoundaryDetectionMethod } from './utils/boundaryAnalyzer';
 
 /**
  * 建築可能ボリュームの計算
@@ -130,7 +132,8 @@ export async function calculateVolumeCheck(
     const model3dData = generateModel3dData(
       property,
       allowedBuildingArea,
-      buildingHeight
+      buildingHeight,
+      adjustedParams
     );
     
     // 日影シミュレーション結果の生成
@@ -611,24 +614,100 @@ function generateRegulationChecks(
  * @param property 物件データ
  * @param buildingArea 建築面積
  * @param buildingHeight 建物高さ
+ * @param buildingParams 建築パラメータ（オプション）
  * @returns 3Dモデルデータ
  */
 function generateModel3dData(
   property: Property,
   buildingArea: number,
-  buildingHeight: number
+  buildingHeight: number,
+  buildingParams?: BuildingParams
 ): Model3DData {
-  // 簡易的に敷地形状から建物形状を生成
-  let buildingWidth, buildingDepth;
+  let buildingShape: any = null;
+  let buildingWidth: number = 10; // デフォルト値を設定
+  let buildingDepth: number = 10; // デフォルト値を設定
   
-  if (property.shapeData?.width && property.shapeData?.depth) {
-    // 敷地形状から寸法を取得
-    buildingWidth = Math.sqrt(buildingArea * (property.shapeData.width / property.shapeData.depth));
-    buildingDepth = buildingArea / buildingWidth;
-  } else {
-    // デフォルトは正方形に近い形状
-    buildingWidth = Math.sqrt(buildingArea);
-    buildingDepth = buildingWidth;
+  // 敷地形状データがある場合は建物形状を生成
+  if (property.shapeData?.points && property.shapeData.points.length >= 3) {
+    try {
+      const floorHeight = buildingParams?.floorHeight || 3.0;
+      const floors = Math.floor(buildingHeight / floorHeight);
+      
+      // Phase 2: 境界線分析を実行
+      const useAdvancedShapeGeneration = process.env.USE_PHASE2_SHAPE === 'true';
+      
+      let generatedBuilding;
+      if (useAdvancedShapeGeneration) {
+        // 境界線分析
+        const boundaryAnalysis = analyzeBoundaries(
+          property.shapeData.points,
+          property.roadWidth,
+          undefined,
+          BoundaryDetectionMethod.LENGTH_BASED
+        );
+        
+        // セットバック距離を決定
+        const setbackDistances = determineSetbackDistances(boundaryAnalysis, {
+          roadSetback: 4.0,
+          neighborSetback: 0.5
+        });
+        
+        // 詳細建物形状を生成
+        generatedBuilding = generateAdvancedBuildingShape(
+          property.shapeData.points,
+          property.shapeData.area || calculatePolygonArea(property.shapeData.points),
+          property.buildingCoverage,
+          property.floorAreaRatio,
+          floorHeight,
+          boundaryAnalysis,
+          setbackDistances,
+          buildingHeight
+        );
+      } else {
+        // Phase 1の実装を使用
+        generatedBuilding = generateBuildingFromPropertyShape(
+          property.shapeData,
+          property.buildingCoverage,
+          property.floorAreaRatio,
+          floorHeight,
+          2.0, // デフォルトセットバック2m
+          buildingHeight
+        );
+      }
+      
+      // 建物形状データを保存
+      buildingShape = {
+        floors: generatedBuilding.floors.map(floor => ({
+          level: floor.level,
+          shape: floor.shape.map(p => [p.x, p.y]),
+          height: floor.height
+        })),
+        totalHeight: generatedBuilding.totalHeight,
+        buildingArea: generatedBuilding.buildingArea
+      };
+      
+      // 建物の幅と奥行きを計算（バウンディングボックス）
+      const buildingPoints = generatedBuilding.floors[0].shape;
+      const xCoords = buildingPoints.map(p => p.x);
+      const yCoords = buildingPoints.map(p => p.y);
+      buildingWidth = Math.max(...xCoords) - Math.min(...xCoords);
+      buildingDepth = Math.max(...yCoords) - Math.min(...yCoords);
+    } catch (error) {
+      logger.warn('建物形状生成エラー', { error });
+    }
+  }
+  
+  // 建物形状が生成できなかった場合は簡易的な矩形を使用
+  if (!buildingShape) {
+    if (property.shapeData?.width && property.shapeData?.depth) {
+      // 敷地形状から寸法を取得
+      buildingWidth = Math.sqrt(buildingArea * (property.shapeData.width / property.shapeData.depth));
+      buildingDepth = buildingArea / buildingWidth;
+    } else {
+      // デフォルトは正方形に近い形状
+      buildingWidth = Math.sqrt(buildingArea);
+      buildingDepth = buildingWidth;
+    }
   }
   
   // 敷地座標
@@ -644,7 +723,7 @@ function generateModel3dData(
   const model3dData: Model3DData = {
     modelType: 'three.js',
     data: {
-      building: {
+      building: buildingShape || {
         position: [0, 0, 0],
         dimensions: [buildingWidth, buildingDepth, buildingHeight]
       },

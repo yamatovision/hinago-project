@@ -89,6 +89,15 @@ export enum HeightDistrictType {
   NONE = 'none',            // 指定なし
 }
 
+// セットバック理由の列挙型（Phase 2追加）
+export enum SetbackReason {
+  ROAD_SETBACK = 'road_setback',           // 道路境界線
+  NEIGHBOR_SETBACK = 'neighbor_setback',   // 隣地境界線
+  SLOPE_RESTRICTION = 'slope_restriction', // 斜線制限
+  SHADOW_REGULATION = 'shadow_regulation', // 日影規制
+  DISTRICT_PLAN = 'district_plan'          // 地区計画
+}
+
 // 物件ステータスの列挙型
 export enum PropertyStatus {
   NEW = 'new', // 新規
@@ -119,12 +128,38 @@ export interface GeoLocation {
   longitude: number; // 経度
 }
 
+// 座標点データの型（測量座標）
+export interface CoordinatePoint {
+  id: string;        // 点番号（KK1, FK3など）
+  x: number;         // X座標（測量座標系）
+  y: number;         // Y座標（測量座標系）
+  length?: number;   // 次の点までの辺長
+}
+
+// 座標抽出結果の型
+export interface CoordinateExtractionResult {
+  coordinatePoints: CoordinatePoint[];
+  totalArea: number;          // 倍面積
+  area: number;               // 面積（㎡）
+  registeredArea: number;     // 地積（㎡）
+  plotNumber?: string;        // 地番
+  confidence?: number;        // OCR信頼度（0-1）
+  extractedImageUrl?: string; // 抽出元画像のURL
+}
+
 // 敷地形状の型
 export interface PropertyShape {
-  points: BoundaryPoint[]; // 境界点の配列
+  points: BoundaryPoint[]; // 境界点の配列（表示用）
   width?: number; // 敷地間口
   depth?: number; // 敷地奥行
   sourceFile?: string; // 測量図ファイルのURL
+  
+  // 測量座標データ（新規追加）
+  coordinatePoints?: CoordinatePoint[];
+  area?: number;                          // 実測面積（㎡）
+  perimeter?: number;                     // 周長（m）
+  coordinateSystem?: string;              // 座標系（例：平面直角座標系）
+  extractionResult?: CoordinateExtractionResult; // 座標抽出結果
 }
 
 
@@ -210,10 +245,39 @@ export interface PropertyDetail extends Property {
   volumeChecks?: VolumeCheck[]; // 関連するボリュームチェック結果
 }
 
+// セットバック情報（Phase 2追加）
+export interface SetbackInfo {
+  north: number;                // 北側セットバック（m）
+  south: number;                // 南側セットバック（m）
+  east: number;                 // 東側セットバック（m）
+  west: number;                 // 西側セットバック（m）
+  uniform?: number;             // 一律セットバック（m）
+  reason?: SetbackReason[];     // セットバック理由
+}
+
+// 階層情報（Phase 2追加）
+export interface FloorInfo {
+  level: number;                // 階数（1から始まる）
+  height: number;               // 階高（m）
+  shape: BoundaryPoint[];       // 平面形状
+  area: number;                 // 床面積（㎡）
+  setback: SetbackInfo;         // セットバック情報
+}
+
+// 建物形状情報（Phase 2追加）
+export interface BuildingShape {
+  floors: FloorInfo[];          // 階層ごとの形状
+  totalHeight: number;          // 建物全体の高さ（m）
+  buildingArea: number;         // 建築面積（1階床面積）（㎡）
+  totalFloorArea: number;       // 延床面積（㎡）
+  volumeEfficiency: number;     // 容積効率（%）
+}
+
 // 3Dモデルデータの型
 export interface Model3DData {
   modelType: string; // モデルの種類（three.js, cesiumなど）
   data: any; // モデルデータ（具体的な形式は実装により異なる）
+  building?: BuildingShape; // 建物形状情報（Phase 2追加）
 }
 
 // ボリュームチェックパラメータの型

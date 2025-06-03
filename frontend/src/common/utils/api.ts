@@ -17,8 +17,10 @@ export async function fetchApi<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   // デフォルトのヘッダーを設定
+  // FormDataの場合はContent-Typeを設定しない（ブラウザが自動設定）
+  const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers as Record<string, string> || {}),
   };
 
@@ -133,9 +135,19 @@ export function get<T>(url: string, options: RequestInit = {}): Promise<ApiRespo
  * @returns レスポンスデータ
  */
 export function post<T>(url: string, data: any, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  // FormDataの場合はそのまま、それ以外はJSON文字列化
+  const body = data instanceof FormData ? data : JSON.stringify(data);
+  
+  // FormDataの場合、Content-Typeヘッダーを削除（ブラウザが自動設定）
+  if (data instanceof FormData && options.headers) {
+    const headers = { ...(options.headers as Record<string, string>) };
+    delete headers['Content-Type'];
+    options.headers = headers;
+  }
+  
   return fetchApi<T>(url, {
     method: 'POST',
-    body: JSON.stringify(data),
+    body,
     ...options,
   });
 }
@@ -148,9 +160,19 @@ export function post<T>(url: string, data: any, options: RequestInit = {}): Prom
  * @returns レスポンスデータ
  */
 export function put<T>(url: string, data: any, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  // FormDataの場合はそのまま、それ以外はJSON文字列化
+  const body = data instanceof FormData ? data : JSON.stringify(data);
+  
+  // FormDataの場合、Content-Typeヘッダーを削除（ブラウザが自動設定）
+  if (data instanceof FormData && options.headers) {
+    const headers = { ...(options.headers as Record<string, string>) };
+    delete headers['Content-Type'];
+    options.headers = headers;
+  }
+  
   return fetchApi<T>(url, {
     method: 'PUT',
-    body: JSON.stringify(data),
+    body,
     ...options,
   });
 }

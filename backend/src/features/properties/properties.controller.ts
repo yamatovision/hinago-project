@@ -177,6 +177,15 @@ export const deleteProperty = async (req: Request, res: Response) => {
  */
 export const uploadSurveyMap = async (req: AuthRequest, res: Response) => {
   try {
+    // デバッグログ
+    logger.info('測量図アップロードリクエスト受信', {
+      headers: req.headers,
+      file: req.file,
+      body: req.body,
+      query: req.query,
+      contentType: req.get('content-type')
+    });
+
     // バリデーション結果の確認
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -189,6 +198,11 @@ export const uploadSurveyMap = async (req: AuthRequest, res: Response) => {
 
     // ファイルが存在するか確認
     if (!req.file) {
+      logger.error('ファイルが見つかりません', {
+        headers: req.headers,
+        body: req.body,
+        files: (req as any).files
+      });
       return sendError(res, 'ファイルが見つかりません', 'FILE_NOT_FOUND', 400);
     }
 
@@ -222,9 +236,21 @@ export const updatePropertyShape = async (req: AuthRequest, res: Response) => {
     }
 
     const { propertyId } = req.params;
+    const { shapeData } = req.body;
+    
+    // デバッグログ
+    logger.info('敷地形状更新リクエスト', {
+      propertyId,
+      shapeData: {
+        pointsLength: shapeData?.points?.length,
+        coordinatePointsLength: shapeData?.coordinatePoints?.length,
+        area: shapeData?.area,
+        hasExtractionResult: !!shapeData?.extractionResult
+      }
+    });
     
     // サービスを呼び出し
-    const property = await propertiesService.updatePropertyShape(propertyId, req.body);
+    const property = await propertiesService.updatePropertyShape(propertyId, shapeData);
     
     if (!property) {
       return sendNotFoundError(res, '指定された物件が見つかりません');

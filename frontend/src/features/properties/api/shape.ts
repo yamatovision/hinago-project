@@ -34,15 +34,15 @@ export const uploadSurveyAndExtractShape = async (
   file: File,
   propertyId?: string
 ): Promise<PropertyShape | null> => {
-  const url = API_PATHS.PROPERTIES.UPLOAD_SURVEY;
+  // propertyIdがある場合はクエリパラメータとして追加
+  let url = API_PATHS.PROPERTIES.UPLOAD_SURVEY;
+  if (propertyId) {
+    url += `?propertyId=${encodeURIComponent(propertyId)}`;
+  }
   
   // FormDataの準備
   const formData = new FormData();
   formData.append('file', file);
-  
-  if (propertyId) {
-    formData.append('propertyId', propertyId);
-  }
   
   // 特別なヘッダーを設定（multipart/form-data）
   const response = await post<PropertyShape>(url, formData, {
@@ -55,5 +55,6 @@ export const uploadSurveyAndExtractShape = async (
     return response.data;
   }
   
-  return null;
+  // エラーの場合はエラーを投げる
+  throw new Error(response.error || '敷地形状の抽出に失敗しました');
 };

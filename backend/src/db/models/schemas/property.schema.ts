@@ -25,12 +25,46 @@ const BoundaryPointSchema = new Schema({
   y: { type: Number, required: true }
 }, { _id: false });
 
+// 座標点データのサブスキーマ（測量座標）
+const CoordinatePointSchema = new Schema({
+  id: { type: String, required: true },
+  x: { type: Number, required: true },
+  y: { type: Number, required: true },
+  length: { type: Number }
+}, { _id: false });
+
+// 座標抽出結果のサブスキーマ
+const CoordinateExtractionResultSchema = new Schema({
+  coordinatePoints: { type: [CoordinatePointSchema], required: true },
+  totalArea: { type: Number, required: true },
+  area: { type: Number, required: true },
+  registeredArea: { type: Number, required: true },
+  plotNumber: { type: String },
+  confidence: { type: Number },
+  extractedImageUrl: { type: String }
+}, { _id: false });
+
 // 敷地形状のサブスキーマ
 const PropertyShapeSchema = new Schema({
-  points: { type: [BoundaryPointSchema], required: true },
+  points: { 
+    type: [BoundaryPointSchema], 
+    required: true,
+    validate: {
+      validator: function(v: any[]) {
+        return v && v.length >= 3;
+      },
+      message: 'pointsは少なくとも3つの点を含む配列である必要があります'
+    }
+  },
   width: { type: Number },
   depth: { type: Number },
-  sourceFile: { type: String }
+  sourceFile: { type: String },
+  // 新規追加フィールド
+  coordinatePoints: { type: [CoordinatePointSchema] },
+  area: { type: Number },
+  perimeter: { type: Number },
+  coordinateSystem: { type: String },
+  extractionResult: { type: CoordinateExtractionResultSchema }
 }, { _id: false });
 
 // 日影規制詳細情報のサブスキーマ（追加）

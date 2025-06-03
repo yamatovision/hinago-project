@@ -38,7 +38,11 @@ const storage = multer.diskStorage({
     // オリジナルファイル名を保持しつつユニークなファイル名を生成
     const uniqueSuffix = `${Date.now()}-${uuidv4()}`;
     const extension = path.extname(file.originalname);
-    const filename = `${path.basename(file.originalname, extension)}-${uniqueSuffix}${extension}`;
+    // 日本語ファイル名をサニタイズ（英数字、ハイフン、アンダースコアのみ残す）
+    const basename = path.basename(file.originalname, extension)
+      .replace(/[^a-zA-Z0-9\-_]/g, '_')
+      .substring(0, 50); // 長すぎる場合は切り詰める
+    const filename = `${basename}-${uniqueSuffix}${extension}`;
     cb(null, filename);
   },
 });

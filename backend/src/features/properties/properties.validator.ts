@@ -175,31 +175,56 @@ export const validateUploadSurvey = [
  * 敷地形状データのバリデーション（共通）
  */
 export const validateShapeData = [
-  body('points')
+  body('shapeData')
+    .isObject()
+    .withMessage('shapeDataはオブジェクトである必要があります'),
+    
+  body('shapeData.points')
     .isArray({ min: 3 })
     .withMessage('pointsは少なくとも3つの点を含む配列である必要があります'),
   
-  body('points.*')
+  body('shapeData.points.*')
     .isObject()
     .withMessage('pointsの要素はオブジェクトである必要があります'),
   
-  body('points.*.x')
+  body('shapeData.points.*.x')
     .isFloat()
     .withMessage('points.xは数値である必要があります'),
   
-  body('points.*.y')
+  body('shapeData.points.*.y')
     .isFloat()
     .withMessage('points.yは数値である必要があります'),
   
-  body('width')
+  body('shapeData.width')
     .optional()
     .isFloat({ min: 0 })
     .withMessage('widthは0以上の数値である必要があります'),
   
-  body('depth')
+  body('shapeData.depth')
     .optional()
     .isFloat({ min: 0 })
     .withMessage('depthは0以上の数値である必要があります'),
+  
+  // 新規追加フィールドのバリデーション
+  body('shapeData.coordinatePoints')
+    .optional()
+    .isArray()
+    .withMessage('coordinatePointsは配列である必要があります'),
+    
+  body('shapeData.area')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('areaは0以上の数値である必要があります'),
+    
+  body('shapeData.perimeter')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('perimeterは0以上の数値である必要があります'),
+    
+  body('shapeData.coordinateSystem')
+    .optional()
+    .isString()
+    .withMessage('coordinateSystemは文字列である必要があります'),
 ];
 
 /**

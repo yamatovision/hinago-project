@@ -12,6 +12,7 @@ import {
 } from '../../types';
 import { logger } from '../../common/utils';
 import { extractShapeFromFile, getFileUrl } from '../../common/middlewares';
+import { calculateArea, calculatePerimeter } from './coordinate.utils';
 import path from 'path';
 import fs from 'fs';
 
@@ -183,12 +184,24 @@ export const updatePropertyShape = async (
       return null;
     }
     
+    // 座標データがある場合は正確な面積を計算
+    let calculatedArea = property.area;
+    if (shapeData.coordinatePoints && shapeData.coordinatePoints.length >= 3) {
+      calculatedArea = calculateArea(shapeData.coordinatePoints);
+      logger.info('座標データから面積を計算', { 
+        calculatedArea, 
+        registeredArea: shapeData.area,
+        pointCount: shapeData.coordinatePoints.length 
+      });
+    } else if (shapeData.width && shapeData.depth) {
+      // 座標データがない場合は矩形として計算
+      calculatedArea = shapeData.width * shapeData.depth;
+    }
+    
     // 敷地形状データを更新
     return await PropertyModel.update(id, {
       shapeData,
-      // 敷地面積を更新 - ポリゴンから計算するロジックを実装する場合はここで行う
-      // ここでは単純に矩形の面積として計算（実際には複雑な形状の場合は別のアルゴリズムが必要）
-      area: shapeData.width && shapeData.depth ? shapeData.width * shapeData.depth : property.area
+      area: shapeData.area || calculatedArea // 実測面積があればそれを優先
     });
   } catch (error) {
     logger.error('敷地形状更新エラー', { error, id });
